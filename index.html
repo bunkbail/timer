@@ -86,7 +86,7 @@
             justify-content: center;
             border-left: 1px solid var(--track-color);
             transition: transform 0.1s;
-            width: 40px; /* Fixed width to prevent jumping */
+            width: 40px;
         }
         .preview-btn:active { transform: scale(0.9); }
 
@@ -134,7 +134,7 @@
             align-items: center;
         }
 
-        /* SCOPED SVG RULE: Only rotates the ring, not icons */
+        /* SVG ScaleY(-1) for Clockwise Animation */
         .timer-circle svg {
             transform: rotate(-90deg) scaleY(-1);
             width: 100%;
@@ -278,6 +278,7 @@
         }
         .btn-secondary:hover { border-color: var(--text-main); color: var(--text-main); }
 
+        /* Icon Fix: Removed rotation, now standard SVG */
         .icon { width: 18px; height: 18px; fill: currentColor; }
 
         /* --- PRESETS --- */
@@ -375,7 +376,7 @@
     </div>
 
     <script>
-        // --- WORKER (Background Accuracy) ---
+        // --- WORKER ---
         const workerCode = `
             let interval;
             self.onmessage = function(e) {
@@ -396,8 +397,6 @@
         const resetBtn = document.getElementById('resetBtn');
         const btnText = document.getElementById('btnText');
         const playIcon = document.getElementById('playIcon');
-        
-        // Sound & Input
         const soundSelect = document.getElementById('soundSelect');
         const previewBtn = document.getElementById('previewBtn');
         const volumeSlider = document.getElementById('volumeSlider');
@@ -411,14 +410,14 @@
         const ICON_PAUSE = '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>';
         const ICON_STOP = '<rect x="6" y="6" width="12" height="12"/>';
 
-        // --- AUDIO SOURCES (Mixkit CDN - Verified Loud & Working) ---
+        // --- AUDIO SOURCES (Mixkit CDN) ---
         const SOUNDS = {
-            digital: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3', // Loud Beep
-            emergency: 'https://assets.mixkit.co/active_storage/sfx/995/995-preview.mp3', // Nuclear Siren
-            classic: 'https://assets.mixkit.co/active_storage/sfx/2193/2193-preview.mp3', // Twin Bell
-            rooster: 'https://upload.wikimedia.org/wikipedia/commons/9/9b/Rooster_crowing.ogg', // Real Rooster
-            school: 'https://assets.mixkit.co/active_storage/sfx/1000/1000-preview.mp3', // Electric Bell
-            train: 'https://assets.mixkit.co/active_storage/sfx/1002/1002-preview.mp3' // Train Crossing
+            digital: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3', 
+            emergency: 'https://assets.mixkit.co/active_storage/sfx/995/995-preview.mp3', 
+            classic: 'https://assets.mixkit.co/active_storage/sfx/2193/2193-preview.mp3', 
+            rooster: 'https://upload.wikimedia.org/wikipedia/commons/9/9b/Rooster_crowing.ogg', 
+            school: 'https://assets.mixkit.co/active_storage/sfx/1000/1000-preview.mp3', 
+            train: 'https://assets.mixkit.co/active_storage/sfx/1002/1002-preview.mp3' 
         };
 
         // --- VARIABLES ---
@@ -432,24 +431,53 @@
         let currentAudio = null;
         let isPreviewing = false;
 
-        // Circular Progress Setup
+        // Circular Progress
         const radius = progressRing.r.baseVal.value;
         const circumference = radius * 2 * Math.PI;
         progressRing.style.strokeDasharray = `${circumference} ${circumference}`;
         progressRing.style.strokeDashoffset = 0;
 
         // --- AUDIO ENGINE ---
-        function playSelectedSound(loop = false) {
-            stopAudio(); // Ensure clean slate
+        
+        // This function ensures the audio object exists and is "blessed" by the interaction
+        function getAudioObject() {
+            if (!currentAudio) {
+                // Initialize with default sound
+                currentAudio = new Audio(SOUNDS[soundSelect.value]);
+            }
+            return currentAudio;
+        }
 
+        // Called on "Start" to unlock browser audio policy
+        function unlockAudio() {
+            const audio = getAudioObject();
+            // We set the source to current selection just in case
+            if (audio.src !== SOUNDS[soundSelect.value]) {
+                audio.src = SOUNDS[soundSelect.value];
+            }
+            // Play a tiny bit of silence/muted audio to authorize playback later
+            const originalVol = masterVolume;
+            audio.volume = 0; 
+            audio.play().then(() => {
+                audio.pause();
+                audio.currentTime = 0;
+                audio.volume = originalVol; // Restore volume
+            }).catch(e => {
+                console.log("Audio unlock failed (user interaction needed)", e);
+            });
+        }
+
+        function playSelectedSound() {
             const type = soundSelect.value;
             const url = SOUNDS[type];
             
-            currentAudio = new Audio(url);
+            if (!currentAudio) currentAudio = new Audio(url);
+            else if (currentAudio.src !== url) currentAudio.src = url;
+
             currentAudio.volume = masterVolume;
-            currentAudio.loop = false; // We handle loop via interval for spacing
+            currentAudio.loop = false;
             
-            // Handle Preview State
+            // Handle Preview Button Reset
             currentAudio.onended = () => {
                 if (isPreviewing) {
                     isPreviewing = false;
@@ -457,13 +485,7 @@
                 }
             };
 
-            const playPromise = currentAudio.play();
-            if (playPromise !== undefined) {
-                playPromise.catch(error => {
-                    console.error("Audio error:", error);
-                    alert("Audio blocked. Interact with the page first.");
-                });
-            }
+            currentAudio.play().catch(e => console.error("Play failed", e));
         }
 
         function stopAudio() {
@@ -475,12 +497,10 @@
 
         function togglePreview() {
             if (isPreviewing) {
-                // Stop
                 stopAudio();
                 isPreviewing = false;
                 previewBtn.textContent = '▶';
             } else {
-                // Play
                 isPreviewing = true;
                 previewBtn.textContent = '■';
                 playSelectedSound();
@@ -489,7 +509,6 @@
 
         function startAlarmLoop() {
             playSelectedSound();
-            // Loop every 3 seconds
             alarmInterval = setInterval(() => {
                 playSelectedSound();
             }, 3000);
@@ -498,15 +517,13 @@
 
         // --- WAKE LOCK ---
         async function requestWakeLock() {
-            try {
-                if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen');
-            } catch (err) {}
+            try { if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); } catch (err) {}
         }
         function releaseWakeLock() {
             if (wakeLock) { wakeLock.release(); wakeLock = null; }
         }
 
-        // --- LOGIC ---
+        // --- TIMER LOGIC ---
         function formatTime(totalSecs) {
             const h = Math.floor(totalSecs / 3600);
             const m = Math.floor((totalSecs % 3600) / 60);
@@ -528,7 +545,6 @@
             if (isRunning) document.title = `(${formatTime(remainingSeconds)}) Focus`;
             else document.title = 'Focus Timer';
 
-            // Lock UI Visual
             if (isRunning || alarmInterval) {
                 display.classList.remove('editable');
                 display.classList.add('locked');
@@ -558,6 +574,9 @@
                 return;
             }
             
+            // KEY FIX: Unlock audio immediately on user click
+            unlockAudio();
+
             isRunning = true;
             worker.postMessage('start');
             requestWakeLock();
@@ -583,11 +602,7 @@
 
         function resetTimer() {
             stopTimer(true);
-            
-            if (alarmInterval) {
-                clearInterval(alarmInterval);
-                alarmInterval = null;
-            }
+            if (alarmInterval) { clearInterval(alarmInterval); alarmInterval = null; }
             stopAudio();
 
             startBtn.classList.remove('alarm-ringing');
@@ -597,16 +612,13 @@
             updateDisplay();
         }
 
-        // --- CUSTOM INPUT LOGIC ---
+        // --- INPUT LOGIC ---
         function toggleInputMode() {
             if (isRunning || alarmInterval) return;
-
             isInputMode = !isInputMode;
-            
             if (isInputMode) {
                 display.style.display = 'none';
                 inputGroup.classList.add('active');
-                
                 inH.value = ''; inM.value = ''; inS.value = '';
                 inM.focus();
             } else {
@@ -621,39 +633,35 @@
             const m = parseInt(inM.value) || 0;
             const s = parseInt(inS.value) || 0;
             const newTotal = (h * 3600) + (m * 60) + s;
-            
-            if (newTotal > 0) {
-                totalSeconds = newTotal;
-                remainingSeconds = totalSeconds;
-            }
+            if (newTotal > 0) { totalSeconds = newTotal; remainingSeconds = totalSeconds; }
             isInputMode = false;
             display.style.display = 'block';
             inputGroup.classList.remove('active');
             updateDisplay();
         }
 
-        // --- EVENT LISTENERS ---
+        // --- LISTENERS ---
         worker.onmessage = function(e) {
             if (e.data === 'tick') {
-                if (remainingSeconds > 0) {
-                    remainingSeconds--;
-                    updateDisplay();
-                } else {
-                    finishTimer();
-                }
+                if (remainingSeconds > 0) { remainingSeconds--; updateDisplay(); } 
+                else { finishTimer(); }
             }
         };
 
         startBtn.onclick = startTimer;
         resetBtn.onclick = resetTimer;
-        
         volumeSlider.addEventListener('input', (e) => {
             masterVolume = parseFloat(e.target.value);
             if (currentAudio) currentAudio.volume = masterVolume;
         });
-
         display.addEventListener('click', toggleInputMode);
         previewBtn.addEventListener('click', togglePreview);
+        
+        // Update sound source immediately when changed
+        soundSelect.addEventListener('change', () => {
+             if (currentAudio) currentAudio.src = SOUNDS[soundSelect.value];
+             if (isPreviewing) { stopAudio(); isPreviewing = false; previewBtn.textContent = '▶'; }
+        });
 
         document.querySelectorAll('.preset-btn').forEach(btn => {
             btn.onclick = () => {
@@ -674,9 +682,7 @@
         });
 
         document.addEventListener('visibilitychange', async () => {
-            if (wakeLock !== null && document.visibilityState === 'visible') {
-                requestWakeLock();
-            }
+            if (wakeLock !== null && document.visibilityState === 'visible') requestWakeLock();
         });
 
         updateDisplay();
