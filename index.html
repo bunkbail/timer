@@ -9,7 +9,7 @@
             --bg-color: #0b1019;
             --card-bg: #111827;
             --primary-blue: #3b82f6;
-            --primary-glow: rgba(59, 130, 246, 0.5);
+            --primary-glow: rgba(59, 130, 246, 0.6);
             --track-color: #1f2937;
             --text-main: #e2e8f0;
             --text-muted: #64748b;
@@ -25,6 +25,7 @@
             align-items: center;
             min-height: 100vh;
             overflow: hidden;
+            transition: background 0.3s;
         }
 
         .container {
@@ -33,15 +34,56 @@
             flex-direction: column;
             align-items: center;
             width: 100%;
-            max-width: 450px;
+            max-width: 480px; /* Slightly wider for shadows */
             padding: 20px;
         }
+
+        /* --- SOUND SETTINGS --- */
+        .sound-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            align-items: center;
+            background: var(--card-bg);
+            padding: 5px;
+            border-radius: 12px;
+            border: 1px solid var(--track-color);
+        }
+
+        select {
+            appearance: none;
+            background-color: transparent;
+            color: var(--text-muted);
+            border: none;
+            padding: 8px 10px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            outline: none;
+            text-align: center;
+            font-weight: 500;
+        }
+        select:hover { color: var(--text-main); }
+
+        .preview-btn {
+            background: transparent;
+            border: none;
+            color: var(--primary-blue);
+            cursor: pointer;
+            padding: 5px 10px;
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-left: 1px solid var(--track-color);
+            transition: transform 0.1s;
+        }
+        .preview-btn:active { transform: scale(0.9); }
 
         /* --- CIRCULAR PROGRESS BAR --- */
         .timer-circle {
             position: relative;
-            width: 320px;
-            height: 320px;
+            width: 360px; /* Increased size for shadow room */
+            height: 360px;
             margin-bottom: 25px;
             display: flex;
             justify-content: center;
@@ -49,9 +91,10 @@
         }
 
         svg {
-            transform: rotate(-90deg); /* Start from top */
+            transform: rotate(-90deg);
             width: 100%;
             height: 100%;
+            overflow: visible; /* Important for shadow */
         }
 
         circle {
@@ -67,7 +110,7 @@
         .circle-progress {
             stroke: var(--primary-blue);
             transition: stroke-dashoffset 0.5s linear;
-            filter: drop-shadow(0 0 8px var(--primary-glow));
+            filter: drop-shadow(0 0 12px var(--primary-glow)); /* Enhanced Glow */
         }
 
         /* --- TIMER DISPLAY & INPUTS --- */
@@ -79,68 +122,75 @@
             justify-content: center;
             text-align: center;
             width: 100%;
+            height: 100%;
+            top: 0; left: 0;
         }
 
         .timer-display {
-            font-size: 4rem;
+            font-size: 4.5rem;
             font-weight: 300;
             font-variant-numeric: tabular-nums;
             color: var(--text-main);
+            cursor: pointer; /* Indicates clickable */
             user-select: none;
-            cursor: default;
+            transition: color 0.2s, transform 0.2s;
+        }
+        .timer-display:hover {
+            color: var(--primary-blue);
+            transform: scale(1.02);
         }
 
         /* Input Mode Styles */
         .input-group {
             display: none;
             flex-direction: row;
-            align-items: flex-end; /* Align inputs to bottom */
-            gap: 8px;
-            margin-bottom: 5px;
+            align-items: flex-end; 
+            gap: 6px;
+            margin-bottom: 10px;
         }
         
         .input-group.active {
             display: flex;
+            animation: fadeIn 0.3s ease;
         }
 
-        .input-unit {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .input-unit { display: flex; flex-direction: column; align-items: center; }
 
         .time-input {
             background: transparent;
             border: none;
             border-bottom: 2px solid var(--track-color);
             color: var(--primary-blue);
-            font-size: 3rem;
-            width: 70px;
+            font-size: 3.5rem;
+            width: 80px;
             text-align: center;
             outline: none;
             transition: border-color 0.2s;
-            padding-bottom: 5px;
+            padding-bottom: 0;
+            font-weight: 300;
         }
         .time-input:focus { border-bottom-color: var(--primary-blue); }
-        .time-input::placeholder { color: var(--text-muted); opacity: 0.3; }
+        .time-input::placeholder { color: var(--text-muted); opacity: 0.2; }
 
         .input-label {
             font-size: 0.7rem;
             color: var(--text-muted);
-            margin-top: 8px; /* Push label below line */
+            margin-top: 5px;
             letter-spacing: 1px;
             font-weight: 600;
         }
 
         .colon {
-            font-size: 2.5rem;
+            font-size: 3rem;
             color: var(--text-muted);
-            margin-bottom: 25px; /* Align visually with inputs */
+            margin-bottom: 20px;
+            opacity: 0.5;
         }
 
         /* Remove spinner arrows */
-        input::-webkit-outer-spin-button,
-        input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 
         /* --- CONTROLS --- */
         .controls {
@@ -168,12 +218,19 @@
         .btn-primary {
             background-color: var(--primary-blue);
             color: white;
-            box-shadow: 0 0 15px rgba(59, 130, 246, 0.4);
-            min-width: 120px;
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.4);
+            min-width: 130px;
             justify-content: center;
         }
         .btn-primary:hover { background-color: #2563eb; transform: scale(1.05); }
         .btn-primary:active { transform: scale(0.95); }
+        .btn-primary.alarm-ringing {
+            background-color: #ef4444; /* Red when ringing */
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.5);
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
 
         .btn-secondary {
             background-color: transparent;
@@ -182,40 +239,9 @@
         }
         .btn-secondary:hover { border-color: var(--text-main); color: var(--text-main); }
 
-        /* Icon SVG styling */
         .icon { width: 18px; height: 18px; fill: currentColor; }
 
-        /* --- SOUND SELECTOR --- */
-        .sound-selector-wrapper {
-            margin-bottom: 20px;
-            position: relative;
-        }
-        
-        select {
-            appearance: none;
-            background-color: var(--card-bg);
-            color: var(--text-muted);
-            border: 1px solid var(--track-color);
-            padding: 8px 35px 8px 15px;
-            border-radius: 8px;
-            font-size: 0.9rem;
-            cursor: pointer;
-            outline: none;
-        }
-        select:hover { border-color: var(--primary-blue); color: var(--text-main); }
-
-        /* Custom arrow for select */
-        .select-arrow {
-            position: absolute;
-            right: 12px;
-            top: 50%;
-            transform: translateY(-50%);
-            pointer-events: none;
-            color: var(--text-muted);
-            font-size: 0.8rem;
-        }
-
-        /* --- PRESETS & EXTRAS --- */
+        /* --- PRESETS --- */
         .presets {
             display: flex;
             flex-wrap: wrap;
@@ -231,21 +257,7 @@
             font-size: 0.85rem;
             border: 1px solid transparent;
         }
-        .preset-btn:hover {
-            border-color: var(--primary-blue);
-            color: var(--primary-blue);
-        }
-
-        .custom-toggle {
-            font-size: 0.8rem;
-            color: var(--primary-blue);
-            background: none;
-            margin-top: 15px;
-            text-decoration: underline;
-            cursor: pointer;
-            opacity: 0.7;
-        }
-        .custom-toggle:hover { opacity: 1; }
+        .preset-btn:hover { border-color: var(--primary-blue); color: var(--primary-blue); }
 
         .status {
             position: absolute;
@@ -259,28 +271,30 @@
 <body>
 
     <div class="container">
-        <!-- Sound Selector -->
-        <div class="sound-selector-wrapper">
+        
+        <!-- Sound Settings -->
+        <div class="sound-row">
             <select id="soundSelect">
-                <option value="electronic">Beep (Electronic)</option>
-                <option value="classic">Classic Alarm Clock</option>
-                <option value="rooster">Rooster</option>
-                <option value="siren">Siren</option>
-                <option value="heavy">Heavy Metal (Synth)</option>
+                <option value="digital">Digital Alarm</option>
+                <option value="classic">Classic Beep</option>
+                <option value="bell">School Bell</option>
+                <option value="sci-fi">Space Alert</option>
+                <option value="soft">Soft Chime</option>
             </select>
-            <span class="select-arrow">▼</span>
+            <button class="preview-btn" id="previewBtn" title="Preview Sound">▶</button>
         </div>
 
         <!-- Circular Progress -->
         <div class="timer-circle">
-            <svg>
-                <circle class="circle-bg" cx="50%" cy="50%" r="150"></circle>
-                <circle class="circle-progress" id="progressRing" cx="50%" cy="50%" r="150"></circle>
+            <!-- viewBox increased to 360 to prevent shadow clipping -->
+            <svg viewBox="0 0 360 360">
+                <circle class="circle-bg" cx="180" cy="180" r="150"></circle>
+                <circle class="circle-progress" id="progressRing" cx="180" cy="180" r="150"></circle>
             </svg>
             
             <div class="time-wrapper">
-                <!-- Standard Display -->
-                <div class="timer-display" id="display">00:00:00</div>
+                <!-- Standard Display (Clickable) -->
+                <div class="timer-display" id="display" title="Click to edit time">00:00:00</div>
                 
                 <!-- Custom Input Fields -->
                 <div class="input-group" id="inputGroup">
@@ -304,7 +318,6 @@
         
         <div class="controls">
             <button id="startBtn" class="btn-primary">
-                <!-- Play Icon -->
                 <svg class="icon" id="playIcon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
                 <span id="btnText">Start</span>
             </button>
@@ -317,18 +330,12 @@
             <button class="preset-btn" data-m="30">30 Min</button>
             <button class="preset-btn" data-m="60">1 Hour</button>
         </div>
-
-        <button id="customToggle" class="custom-toggle">Set Custom Time</button>
         
         <div class="status" id="statusText">Ready to focus</div>
     </div>
 
-    <!-- AUDIO FILES (Hidden) -->
-    <!-- Using reliable raw git content for sound sources -->
-    <audio id="audioClassic" src="https://raw.githubusercontent.com/simonjvardy/alarm-clock/master/assets/alarm.mp3" preload="auto"></audio>
-
     <script>
-        // --- WORKER ---
+        // --- WORKER (Background Logic) ---
         const workerCode = `
             let interval;
             self.onmessage = function(e) {
@@ -348,12 +355,12 @@
         const startBtn = document.getElementById('startBtn');
         const resetBtn = document.getElementById('resetBtn');
         const statusText = document.getElementById('statusText');
-        const customToggle = document.getElementById('customToggle');
         const btnText = document.getElementById('btnText');
         const playIcon = document.getElementById('playIcon');
+        
+        // Sound & Input
         const soundSelect = document.getElementById('soundSelect');
-        const audioClassic = document.getElementById('audioClassic');
-
+        const previewBtn = document.getElementById('previewBtn');
         const inputGroup = document.getElementById('inputGroup');
         const inH = document.getElementById('inH');
         const inM = document.getElementById('inM');
@@ -362,6 +369,7 @@
         // --- ICONS ---
         const ICON_PLAY = '<path d="M8 5v14l11-7z"/>';
         const ICON_PAUSE = '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>';
+        const ICON_STOP = '<rect x="6" y="6" width="12" height="12"/>';
 
         // --- VARIABLES ---
         let totalSeconds = 15 * 60; 
@@ -372,93 +380,92 @@
         let audioContext = null;
         let alarmInterval = null;
 
-        // Circular Progress Setup
+        // Circular Progress Setup (2 * PI * 150 approx 942)
         const radius = progressRing.r.baseVal.value;
         const circumference = radius * 2 * Math.PI;
         progressRing.style.strokeDasharray = `${circumference} ${circumference}`;
         progressRing.style.strokeDashoffset = 0;
 
-        // --- AUDIO SYSTEM ---
-        function playBeep(freq, type = 'sine') {
-            const osc = audioContext.createOscillator();
-            const gain = audioContext.createGain();
-            osc.type = type;
-            osc.frequency.setValueAtTime(freq, audioContext.currentTime);
-            gain.gain.setValueAtTime(0.1, audioContext.currentTime);
-            gain.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.5);
-            osc.connect(gain);
-            gain.connect(audioContext.destination);
-            osc.start();
-            osc.stop(audioContext.currentTime + 0.5);
-        }
-
-        function playSelectedSound() {
+        // --- AUDIO ENGINE (Synthesizer) ---
+        // This generates sounds mathematically to ensure they always load and play.
+        function getAudioContext() {
             if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
             if (audioContext.state === 'suspended') audioContext.resume();
+            return audioContext;
+        }
 
+        function osc(freq, type, startTime, duration, vol = 0.1) {
+            const ctx = getAudioContext();
+            const o = ctx.createOscillator();
+            const g = ctx.createGain();
+            o.type = type;
+            o.frequency.setValueAtTime(freq, startTime);
+            g.gain.setValueAtTime(vol, startTime);
+            g.gain.linearRampToValueAtTime(0, startTime + duration);
+            o.connect(g);
+            g.connect(ctx.destination);
+            o.start(startTime);
+            o.stop(startTime + duration);
+        }
+
+        function playSoundEffect() {
+            const ctx = getAudioContext();
+            const now = ctx.currentTime;
             const style = soundSelect.value;
 
-            // 1. Electronic Beep (Default)
-            if (style === 'electronic') {
-                playBeep(880);
-                setTimeout(() => playBeep(880), 200);
-                setTimeout(() => playBeep(880), 400);
+            if (style === 'classic') {
+                // High pitch sine beep
+                osc(880, 'sine', now, 0.1);
+                osc(880, 'sine', now + 0.15, 0.1);
+                osc(880, 'sine', now + 0.3, 0.1);
+            } 
+            else if (style === 'digital') {
+                // Digital Clock BEEP BEEP BEEP
+                osc(2000, 'square', now, 0.1, 0.05);
+                osc(2000, 'square', now + 0.12, 0.1, 0.05);
+                osc(2000, 'square', now + 0.24, 0.1, 0.05);
+                osc(2000, 'square', now + 0.36, 0.1, 0.05);
             }
-            // 2. Classic Alarm (MP3)
-            else if (style === 'classic') {
-                audioClassic.currentTime = 0;
-                audioClassic.play().catch(e => console.log('Audio play blocked', e));
+            else if (style === 'bell') {
+                // Complex harmonics for a bell sound
+                osc(500, 'triangle', now, 1.5, 0.1);
+                osc(1000, 'sine', now, 1.0, 0.05);
+                osc(1500, 'sine', now, 0.8, 0.03);
             }
-            // 3. Rooster (Synthesized approximation)
-            else if (style === 'rooster') {
-                playBeep(500, 'sawtooth');
-                setTimeout(() => playBeep(800, 'sawtooth'), 150);
-                setTimeout(() => playBeep(500, 'sawtooth'), 300);
+            else if (style === 'sci-fi') {
+                // Frequency sweep
+                const o = ctx.createOscillator();
+                const g = ctx.createGain();
+                o.frequency.setValueAtTime(300, now);
+                o.frequency.exponentialRampToValueAtTime(1200, now + 0.4);
+                g.gain.setValueAtTime(0.1, now);
+                g.gain.linearRampToValueAtTime(0, now + 0.4);
+                o.connect(g); g.connect(ctx.destination);
+                o.start(now); o.stop(now + 0.4);
             }
-            // 4. Siren
-            else if (style === 'siren') {
-                 const osc = audioContext.createOscillator();
-                 const gain = audioContext.createGain();
-                 osc.type = 'triangle';
-                 osc.frequency.setValueAtTime(600, audioContext.currentTime);
-                 osc.frequency.linearRampToValueAtTime(900, audioContext.currentTime + 0.5);
-                 osc.frequency.linearRampToValueAtTime(600, audioContext.currentTime + 1.0);
-                 gain.gain.value = 0.2;
-                 osc.connect(gain);
-                 gain.connect(audioContext.destination);
-                 osc.start();
-                 osc.stop(audioContext.currentTime + 1.0);
-            }
-            // 5. Heavy (Low pitch sawtooth)
-            else if (style === 'heavy') {
-                playBeep(150, 'sawtooth');
-                setTimeout(() => playBeep(150, 'sawtooth'), 200);
+            else if (style === 'soft') {
+                // Gentle Gong/Chime
+                osc(330, 'sine', now, 2.0, 0.1);
+                osc(440, 'sine', now + 0.1, 2.0, 0.05);
             }
         }
 
         function startAlarmLoop() {
-            // Play immediately
-            playSelectedSound();
-            // Loop every 2 seconds until Reset is clicked
-            alarmInterval = setInterval(playSelectedSound, 2000);
-            statusText.textContent = "Time's up! (Click Reset to stop)";
+            playSoundEffect();
+            // Loop duration depends on urgency, default 2s
+            alarmInterval = setInterval(playSoundEffect, 1500);
+            statusText.textContent = "Time's up!";
             document.title = "Time's Up!";
         }
 
         // --- WAKE LOCK ---
         async function requestWakeLock() {
             try {
-                if ('wakeLock' in navigator) {
-                    wakeLock = await navigator.wakeLock.request('screen');
-                }
-            } catch (err) { console.error(err); }
+                if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen');
+            } catch (err) { console.log("Wake Lock not supported"); }
         }
-
         function releaseWakeLock() {
-            if (wakeLock) {
-                wakeLock.release();
-                wakeLock = null;
-            }
+            if (wakeLock) { wakeLock.release(); wakeLock = null; }
         }
 
         // --- LOGIC ---
@@ -471,52 +478,47 @@
         }
 
         function setProgress(percent) {
-            // Clockwise: We reduce the dashoffset from Full Circumference down to 0
-            // Logic: 0% = Full offset (empty), 100% = 0 offset (full)
-            // But timer goes from 100% (full) to 0% (empty)
-            // So:
-            const offset = circumference - (percent / 100) * circumference;
-            progressRing.style.strokeDashoffset = -offset; // Negative to go clockwise
+            // CLOCKWISE Logic:
+            // strokeDasharray is full circumference.
+            // offset 0 = Full circle. offset = circumference = Empty.
+            // We want to go from Full (0 offset) to Empty (circumference offset)
+            const offset = (1 - (percent / 100)) * circumference; 
+            progressRing.style.strokeDashoffset = offset;
         }
 
         function updateDisplay() {
             display.textContent = formatTime(remainingSeconds);
             const percent = totalSeconds === 0 ? 0 : (remainingSeconds / totalSeconds) * 100;
             setProgress(percent);
-            document.title = isRunning ? `(${formatTime(remainingSeconds)}) Timer` : 'Focus';
+            document.title = isRunning ? `(${formatTime(remainingSeconds)}) Focus` : 'Focus Timer';
         }
 
         function finishTimer() {
-            stopTimer(false); // Stop worker but don't reset text
+            stopTimer(false); 
             remainingSeconds = 0;
             updateDisplay();
             startAlarmLoop();
             
-            // Switch Start button to "Stop Sound" visually
-            playIcon.innerHTML = '<rect x="6" y="6" width="12" height="12"/>';
-            btnText.textContent = 'Stop Sound';
+            // Transform Start button to Stop button
+            playIcon.innerHTML = ICON_STOP;
+            btnText.textContent = 'Stop';
             startBtn.classList.add('alarm-ringing');
-            startBtn.onclick = resetTimer; // Clicking start button now resets
+            startBtn.onclick = resetTimer; 
         }
 
         function startTimer() {
             if (isInputMode) confirmCustomTime();
 
             if (isRunning) {
-                // User clicked Pause
-                stopTimer();
+                stopTimer(); // Acts as pause
                 return;
             }
             
-            // Init Audio Context
-            if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            if (audioContext.state === 'suspended') audioContext.resume();
-
+            getAudioContext(); // Init Audio
             isRunning = true;
             worker.postMessage('start');
             requestWakeLock();
             
-            // UI Updates
             playIcon.innerHTML = ICON_PAUSE;
             btnText.textContent = 'Pause';
             startBtn.style.backgroundColor = 'var(--text-muted)';
@@ -538,38 +540,35 @@
 
         function resetTimer() {
             stopTimer(true);
-            // Clear alarm loop if ringing
             if (alarmInterval) {
                 clearInterval(alarmInterval);
                 alarmInterval = null;
-                // Fix button back to normal if it was "Stop Sound"
+                startBtn.classList.remove('alarm-ringing');
                 startBtn.onclick = startTimer;
             }
-            
             remainingSeconds = totalSeconds;
             updateDisplay();
             statusText.textContent = 'Ready';
         }
 
-        // --- CUSTOM INPUT ---
+        // --- CUSTOM INPUT LOGIC ---
         function toggleInputMode() {
             if (isRunning) stopTimer();
-            if (alarmInterval) resetTimer(); // Stop sound if setting time
+            if (alarmInterval) resetTimer();
 
             isInputMode = !isInputMode;
             
             if (isInputMode) {
                 display.style.display = 'none';
                 inputGroup.classList.add('active');
-                customToggle.textContent = 'Cancel Edit';
-                statusText.textContent = 'Enter time';
-                inM.focus();
-                // Clear inputs
+                statusText.textContent = 'Enter time or click Start';
+                
+                // Clear inputs for fresh entry
                 inH.value = ''; inM.value = ''; inS.value = '';
+                inM.focus();
             } else {
                 display.style.display = 'block';
                 inputGroup.classList.remove('active');
-                customToggle.textContent = 'Set Custom Time';
                 updateDisplay();
             }
         }
@@ -583,12 +582,15 @@
             if (newTotal > 0) {
                 totalSeconds = newTotal;
                 remainingSeconds = totalSeconds;
-                toggleInputMode();
-            } else {
-                toggleInputMode();
             }
+            // We don't toggle mode off here explicitly, startTimer handles it
+            isInputMode = false;
+            display.style.display = 'block';
+            inputGroup.classList.remove('active');
+            updateDisplay();
         }
 
+        // --- EVENT LISTENERS ---
         worker.onmessage = function(e) {
             if (e.data === 'tick') {
                 if (remainingSeconds > 0) {
@@ -600,14 +602,21 @@
             }
         };
 
-        // --- LISTENERS ---
-        startBtn.onclick = startTimer; // Use onclick property for easy override
+        startBtn.onclick = startTimer;
         resetBtn.onclick = resetTimer;
-        customToggle.onclick = toggleInputMode;
+        
+        // Click Display to Edit
+        display.addEventListener('click', toggleInputMode);
 
+        // Sound Preview
+        previewBtn.addEventListener('click', () => {
+            playSoundEffect();
+        });
+
+        // Presets
         document.querySelectorAll('.preset-btn').forEach(btn => {
             btn.onclick = () => {
-                if (isInputMode) toggleInputMode();
+                if (isInputMode) toggleInputMode(); 
                 if (alarmInterval) resetTimer();
                 stopTimer();
                 totalSeconds = parseInt(btn.getAttribute('data-m')) * 60;
@@ -617,20 +626,23 @@
             };
         });
 
+        // Input Handling (Enter key)
         [inH, inM, inS].forEach(inp => {
             inp.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') { confirmCustomTime(); startTimer(); }
+                if (e.key === 'Enter') { 
+                    confirmCustomTime(); 
+                    startTimer(); 
+                }
             });
         });
 
-        // Re-acquire WakeLock on visibility return
+        // Re-acquire WakeLock
         document.addEventListener('visibilitychange', async () => {
             if (wakeLock !== null && document.visibilityState === 'visible') {
                 requestWakeLock();
             }
         });
 
-        // Init
         updateDisplay();
     </script>
 </body>
