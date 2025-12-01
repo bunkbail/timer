@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Focus Timer</title>
+    <style>
+        :root {
+            --bg-color: #0b1019; /* Deep dark blue */
+            --card-bg: #111827; /* Slightly lighter dark blue */
+            --primary-blue: #3b82f6; /* Bright modern blue */
+            --primary-hover: #2563eb;
+            --text-main: #e2e8f0;
+            --text-muted: #94a3b8;
+            --danger: #ef4444;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            transition: background 0.3s ease;
+        }
+
+        .container {
+            text-align: center;
+            width: 100%;
+            max-width: 400px;
+            padding: 20px;
+        }
+
+        /* Timer Display */
+        .timer-display {
+            font-size: 6rem;
+            font-weight: 200;
+            font-variant-numeric: tabular-nums;
+            letter-spacing: -2px;
+            margin: 20px 0;
+            color: var(--primary-blue);
+            text-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+        }
+
+        /* Controls */
+        .controls {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-bottom: 40px;
+        }
+
+        button {
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .btn-primary {
+            background-color: var(--primary-blue);
+            color: white;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+        }
+        .btn-primary:hover { background-color: var(--primary-hover); transform: translateY(-1px); }
+        .btn-primary:active { transform: translateY(0); }
+
+        .btn-secondary {
+            background-color: transparent;
+            border: 1px solid var(--text-muted);
+            color: var(--text-muted);
+        }
+        .btn-secondary:hover { border-color: var(--text-main); color: var(--text-main); }
+
+        /* Presets */
+        .presets {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .preset-btn {
+            background-color: var(--card-bg);
+            color: var(--text-muted);
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+        .preset-btn:hover {
+            background-color: #1f2937;
+            color: var(--primary-blue);
+        }
+
+        /* Status Indicator */
+        .status {
+            margin-top: 20px;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            height: 20px;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="timer-display" id="display">00:00</div>
+        
+        <div class="controls">
+            <button id="startBtn" class="btn-primary">Start</button>
+            <button id="resetBtn" class="btn-secondary">Reset</button>
+        </div>
+
+        <div class="presets">
+            <button class="preset-btn" data-time="15">15 Minutes</button>
+            <button class="preset-btn" data-time="24">24 Minutes</button>
+            <button class="preset-btn" data-time="30">30 Minutes</button>
+            <button class="preset-btn" data-time="60">1 Hour</button>
+        </div>
+        
+        <div class="status" id="statusText">Select a time to begin</div>
+    </div>
+
+    <script>
+        // --- LOGIC: Web Worker for Background Accuracy ---
+        // We create the worker dynamically so you don't need a separate file.
+        const workerCode = `
+            let timerInterval;
+            self.onmessage = function(e) {
+                if (e.data === 'start') {
+                    timerInterval = setInterval(() => {
+                        self.postMessage('tick');
+                    }, 1000);
+                } else if (e.data === 'stop') {
+                    clearInterval(timerInterval);
+                }
+            };
+        `;
+        const blob = new Blob([workerCode], { type: "application/javascript" });
+        const worker = new Worker(URL.createObjectURL(blob));
+
+        // --- DOM ELEMENTS ---
+        const display = document.getElementById('display');
+        const startBtn = document.getElementById('startBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const statusText = document.getElementById('statusText');
+        const presetBtns = document.querySelectorAll('.preset-btn');
+
+        // --- VARIABLES ---
+        let totalSeconds = 15 * 60; // Default 15 mins
+        let remainingSeconds = totalSeconds;
+        let isRunning = false;
+        let audioContext = null;
+
+        // --- AUDIO SYSTEM (Web Audio API) ---
+        // This creates a beep sound manually. It is much more reliable than <audio> tags.
+        function playAlarm() {
+            if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(880, audioContext.currentTime); // High pitch beep
+            oscillator.frequency.exponentialRampToValueAtTime(440, audioContext.currentTime + 0.5);
+            
+            gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            oscillator.start();
+            oscillator.stop(audioContext.currentTime + 0.5);
+        }
+
+        // Initialize Audio Context on first user interaction (Required by browsers)
+        function initAudio() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                // Play a silent sound to "warm up" the audio engine
+                const buffer = audioContext.createBuffer(1, 1, 22050); 
+                const source = audioContext.createBufferSource();
+                source.buffer = buffer;
+                source.connect(audioContext.destination);
+                source.start(0);
+            } else if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+        }
+
+        // --- TIMER FUNCTIONS ---
+        function updateDisplay() {
+            const m = Math.floor(remainingSeconds / 60);
+            const s = remainingSeconds % 60;
+            display.textContent = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+            document.title = isRunning ? `(${display.textContent}) Timer` : 'Focus Timer';
+        }
+
+        function finishTimer() {
+            stopTimer();
+            remainingSeconds = 0;
+            updateDisplay();
+            playAlarm();
+            // Pulse the alarm 3 times
+            setTimeout(playAlarm, 1000);
+            setTimeout(playAlarm, 2000);
+            statusText.textContent = "Time's up!";
+            alert("Time is up!"); // Fallback if audio fails
+        }
+
+        function startTimer() {
+            if (isRunning) {
+                // If running, treat button as Pause
+                stopTimer();
+                return;
+            }
+            
+            initAudio(); // Ensure audio is ready
+            isRunning = true;
+            worker.postMessage('start'); // Tell worker to start ticking
+            startBtn.textContent = 'Pause';
+            startBtn.style.backgroundColor = 'var(--text-muted)'; // Dim color for pause state
+            statusText.textContent = 'Focusing...';
+        }
+
+        function stopTimer() {
+            isRunning = false;
+            worker.postMessage('stop'); // Tell worker to stop
+            startBtn.textContent = 'Start';
+            startBtn.style.backgroundColor = 'var(--primary-blue)';
+            statusText.textContent = 'Paused';
+        }
+
+        function resetTimer() {
+            stopTimer();
+            remainingSeconds = totalSeconds;
+            updateDisplay();
+            statusText.textContent = 'Ready';
+        }
+
+        function setTime(minutes) {
+            stopTimer();
+            totalSeconds = minutes * 60;
+            remainingSeconds = totalSeconds;
+            updateDisplay();
+            statusText.textContent = `Set for ${minutes} minutes`;
+        }
+
+        // --- WORKER LISTENER ---
+        // This receives the 'tick' from the background thread
+        worker.onmessage = function(e) {
+            if (e.data === 'tick') {
+                if (remainingSeconds > 0) {
+                    remainingSeconds--;
+                    updateDisplay();
+                } else {
+                    finishTimer();
+                }
+            }
+        };
+
+        // --- EVENT LISTENERS ---
+        startBtn.addEventListener('click', startTimer);
+        resetBtn.addEventListener('click', resetTimer);
+
+        presetBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const min = parseInt(btn.getAttribute('data-time'));
+                setTime(min);
+                startTimer(); // Auto-start on preset click
+            });
+        });
+
+        // Initial setup
+        updateDisplay();
+
+    </script>
+</body>
+</html>
