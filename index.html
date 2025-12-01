@@ -134,7 +134,6 @@
             align-items: center;
         }
 
-        /* SVG ScaleY(-1) for Clockwise Animation */
         .timer-circle svg {
             transform: rotate(-90deg) scaleY(-1);
             width: 100%;
@@ -410,7 +409,7 @@
         const ICON_PAUSE = '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>';
         const ICON_STOP = '<rect x="6" y="6" width="12" height="12"/>';
 
-        // --- AUDIO SOURCES (User Provided WAV Files) ---
+        // --- AUDIO SOURCES (WAV) ---
         const SOUNDS = {
             loud_alarm: "https://assets.mixkit.co/active_storage/sfx/2869/2869.wav",
             fire_alarm: "https://assets.mixkit.co/active_storage/sfx/995/995.wav",
@@ -429,7 +428,11 @@
         let wakeLock = null;
         let alarmInterval = null;
         let masterVolume = 1.0; 
-        let currentAudio = null;
+        
+        // SINGLE PERSISTENT AUDIO PLAYER
+        // This is key for streaming/buffering. We don't recreate it.
+        const audioPlayer = new Audio();
+        audioPlayer.preload = "auto"; // Tell browser to buffer automatically
         let isPreviewing = false;
 
         // Circular Progress
@@ -439,74 +442,88 @@
         progressRing.style.strokeDashoffset = 0;
 
         // --- AUDIO ENGINE ---
-        function getAudioObject() {
-            if (!currentAudio) {
-                currentAudio = new Audio(SOUNDS[soundSelect.value]);
+
+        // Initialize Audio
+        function initAudio() {
+            // Set source immediately to allow background buffering
+            if (audioPlayer.src !== SOUNDS[soundSelect.value]) {
+                audioPlayer.src = SOUNDS[soundSelect.value];
             }
-            return currentAudio;
+            audioPlayer.volume = masterVolume;
         }
 
-        // Unlock audio on interaction (crucial for browsers)
-        function unlockAudio() {
-            const audio = getAudioObject();
-            if (audio.src !== SOUNDS[soundSelect.value]) {
-                audio.src = SOUNDS[soundSelect.value];
+        // Switch Sound immediately when dropdown changes
+        function switchSound() {
+            const wasPlaying = isPreviewing;
+            if (wasPlaying) stopAudio();
+            
+            // Changing src triggers the browser to start buffering the new file
+            audioPlayer.src = SOUNDS[soundSelect.value];
+            audioPlayer.load(); // Force buffer start
+            
+            if (wasPlaying) {
+                // If we were previewing, keep playing the new sound
+                togglePreview(); 
             }
-            const originalVol = masterVolume;
-            audio.volume = 0; 
-            audio.play().then(() => {
-                audio.pause();
-                audio.currentTime = 0;
-                audio.volume = originalVol;
-            }).catch(e => {
-                console.log("Audio unlock failed (user interaction needed)", e);
-            });
         }
 
-        function playSelectedSound() {
-            const type = soundSelect.value;
-            const url = SOUNDS[type];
+        function playSound() {
+            audioPlayer.currentTime = 0;
+            audioPlayer.volume = masterVolume;
+            const playPromise = audioPlayer.play();
             
-            if (!currentAudio) currentAudio = new Audio(url);
-            else if (currentAudio.src !== url) currentAudio.src = url;
-
-            currentAudio.volume = masterVolume;
-            currentAudio.loop = false;
-            
-            // Handle Preview Button Reset
-            currentAudio.onended = () => {
-                if (isPreviewing) {
-                    isPreviewing = false;
-                    previewBtn.textContent = '▶';
-                }
-            };
-
-            currentAudio.play().catch(e => console.error("Play failed", e));
+            if (playPromise !== undefined) {
+                playPromise.catch(error => {
+                    console.error("Playback failed (likely user interaction needed)", error);
+                });
+            }
         }
 
         function stopAudio() {
-            if (currentAudio) {
-                currentAudio.pause();
-                currentAudio.currentTime = 0;
+            audioPlayer.pause();
+            audioPlayer.currentTime = 0;
+            if (isPreviewing) {
+                isPreviewing = false;
+                previewBtn.textContent = '▶';
             }
+        }
+
+        // The "Unlock" trick:
+        // Play and immediately pause on user interaction (Start button)
+        // This authorizes the browser to play loud sound later without interaction.
+        function unlockAudio() {
+            const originalVol = audioPlayer.volume;
+            audioPlayer.volume = 0; 
+            audioPlayer.play().then(() => {
+                audioPlayer.pause();
+                audioPlayer.currentTime = 0;
+                audioPlayer.volume = originalVol; 
+            }).catch(() => {});
         }
 
         function togglePreview() {
             if (isPreviewing) {
                 stopAudio();
-                isPreviewing = false;
-                previewBtn.textContent = '▶';
             } else {
                 isPreviewing = true;
                 previewBtn.textContent = '■';
-                playSelectedSound();
+                playSound();
+                
+                // Reset button when sound ends naturally
+                audioPlayer.onended = () => {
+                    isPreviewing = false;
+                    previewBtn.textContent = '▶';
+                    audioPlayer.onended = null; // Clean up listener
+                };
             }
         }
 
         function startAlarmLoop() {
-            playSelectedSound();
+            // Play immediately
+            playSound();
+            // Loop every 3s
             alarmInterval = setInterval(() => {
-                playSelectedSound();
+                playSound();
             }, 3000);
             document.title = "Time's Up!";
         }
@@ -570,7 +587,7 @@
                 return;
             }
             
-            unlockAudio(); // Important!
+            unlockAudio(); // Authorize Audio
 
             isRunning = true;
             worker.postMessage('start');
@@ -645,17 +662,15 @@
 
         startBtn.onclick = startTimer;
         resetBtn.onclick = resetTimer;
+        
         volumeSlider.addEventListener('input', (e) => {
             masterVolume = parseFloat(e.target.value);
-            if (currentAudio) currentAudio.volume = masterVolume;
+            audioPlayer.volume = masterVolume;
         });
+        
         display.addEventListener('click', toggleInputMode);
         previewBtn.addEventListener('click', togglePreview);
-        
-        soundSelect.addEventListener('change', () => {
-             if (currentAudio) currentAudio.src = SOUNDS[soundSelect.value];
-             if (isPreviewing) { stopAudio(); isPreviewing = false; previewBtn.textContent = '▶'; }
-        });
+        soundSelect.addEventListener('change', switchSound);
 
         document.querySelectorAll('.preset-btn').forEach(btn => {
             btn.onclick = () => {
@@ -679,6 +694,8 @@
             if (wakeLock !== null && document.visibilityState === 'visible') requestWakeLock();
         });
 
+        // Initialize audio on load
+        initAudio();
         updateDisplay();
     </script>
 </body>
