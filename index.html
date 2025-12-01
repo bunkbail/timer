@@ -57,6 +57,7 @@
             border: 1px solid var(--track-color);
         }
 
+        /* Themed Dropdown */
         select {
             appearance: none;
             background-color: var(--card-bg);
@@ -69,7 +70,7 @@
             text-align: center;
             font-weight: 500;
             border-radius: 8px;
-            min-width: 120px;
+            min-width: 140px;
         }
         select option {
             background-color: var(--card-bg);
@@ -312,11 +313,14 @@
             <!-- Sound Selector -->
             <div class="sound-row">
                 <select id="soundSelect">
-                    <option value="classic">Classic Alarm</option>
-                    <option value="digital">Digital Beep</option>
-                    <option value="bell">School Bell</option>
+                    <option value="digital">Digital Watch</option>
+                    <option value="mechanical">Mechanical Ring</option>
                     <option value="rooster">Rooster</option>
-                    <option value="scifi">Space Alert</option>
+                    <option value="scifi">Red Alert (Sci-Fi)</option>
+                    <option value="bugle">Bugle Tune</option>
+                    <option value="siren">Siren Burst</option>
+                    <option value="triangle">Dinner Bell</option>
+                    <option value="ship">Ship Bell</option>
                 </select>
                 <button class="preview-btn" id="previewBtn" title="Preview Sound">▶</button>
             </div>
@@ -413,14 +417,16 @@
         const ICON_PAUSE = '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>';
         const ICON_STOP = '<rect x="6" y="6" width="12" height="12"/>';
 
-        // --- AUDIO SOURCES (Correct CDN Links) ---
-        // These links use jsDelivr to ensure correct MIME types so audio plays in all browsers.
+        // --- AUDIO SOURCES (Google Assistant Library - Very Reliable) ---
         const SOUNDS = {
-            classic: 'https://cdn.jsdelivr.net/gh/kyleledbetter/react-alarm-clock@master/public/sounds/alarm.mp3',
-            digital: 'https://cdn.jsdelivr.net/gh/pepeiv/timer@master/public/alarm.mp3',
-            bell: 'https://cdn.jsdelivr.net/gh/kelvin-wong/boxing-timer@master/public/media/bell.mp3',
-            rooster: 'https://cdn.jsdelivr.net/gh/Mombali-S/Alarm-Clock@master/sounds/rooster.mp3',
-            scifi: 'https://cdn.jsdelivr.net/gh/b-mc2/react-timer@master/public/alarm.mp3'
+            digital: 'https://actions.google.com/sounds/v1/alarms/digital_watch_alarm_long.ogg',
+            mechanical: 'https://actions.google.com/sounds/v1/alarms/mechanical_clock_ring.ogg',
+            rooster: 'https://actions.google.com/sounds/v1/animals/rooster.ogg',
+            scifi: 'https://actions.google.com/sounds/v1/science_fiction/alarm_loop.ogg',
+            bugle: 'https://actions.google.com/sounds/v1/alarms/bugle_tune.ogg',
+            siren: 'https://actions.google.com/sounds/v1/emergency/siren_short_burst.ogg',
+            triangle: 'https://actions.google.com/sounds/v1/alarms/dinner_bell_triangle.ogg',
+            ship: 'https://actions.google.com/sounds/v1/transportation/ship_bell.ogg'
         };
 
         // --- VARIABLES ---
@@ -430,7 +436,7 @@
         let isInputMode = false;
         let wakeLock = null;
         let alarmInterval = null;
-        let masterVolume = 1.0; // Default Full Volume
+        let masterVolume = 1.0; 
         let currentAudio = null;
 
         // Circular Progress Setup
@@ -449,17 +455,36 @@
             const type = soundSelect.value;
             const url = SOUNDS[type];
             
+            // Try playing audio file
             currentAudio = new Audio(url);
             currentAudio.volume = masterVolume;
-            currentAudio.play().catch(e => {
-                console.error('Audio play failed:', e);
-                // Fallback beep if network fails
-                const ctx = new (window.AudioContext || window.webkitAudioContext)();
-                const osc = ctx.createOscillator();
-                osc.connect(ctx.destination);
-                osc.start();
-                osc.stop(ctx.currentTime + 0.2);
-            });
+            
+            const playPromise = currentAudio.play();
+            
+            if (playPromise !== undefined) {
+                playPromise.catch(error => {
+                    console.error("Audio playback failed (Using fallback):", error);
+                    // Fallback to oscillator if network/format fails
+                    playFallbackBeep();
+                });
+            }
+        }
+
+        function playFallbackBeep() {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            
+            osc.frequency.setValueAtTime(600, ctx.currentTime);
+            osc.frequency.linearRampToValueAtTime(800, ctx.currentTime + 0.1);
+            osc.frequency.linearRampToValueAtTime(600, ctx.currentTime + 0.2);
+            
+            gain.gain.value = masterVolume;
+            
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start();
+            osc.stop(ctx.currentTime + 0.3);
         }
 
         function startAlarmLoop() {
@@ -519,7 +544,6 @@
             updateDisplay();
             startAlarmLoop();
             
-            // Switch Start -> Stop
             playIcon.innerHTML = ICON_STOP;
             btnText.textContent = 'Stop';
             startBtn.classList.add('alarm-ringing');
