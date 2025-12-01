@@ -423,7 +423,7 @@
         };
 
         // --- VARIABLES ---
-        let totalSeconds = 0; // Default to 00:00
+        let totalSeconds = 0; 
         let remainingSeconds = 0;
         let isRunning = false;
         let isInputMode = false;
@@ -568,7 +568,7 @@
         function startTimer() {
             if (isInputMode) confirmCustomTime();
 
-            // Handle start on 00:00 - open input instead
+            // Smart Start: If time is 00:00, open input menu
             if (remainingSeconds === 0 && totalSeconds === 0) {
                 toggleInputMode();
                 return;
@@ -612,7 +612,9 @@
             startBtn.classList.remove('alarm-ringing');
             startBtn.onclick = startTimer;
             
-            remainingSeconds = totalSeconds;
+            // KEY UPDATE: Reset everything to 0
+            totalSeconds = 0;
+            remainingSeconds = 0;
             updateDisplay();
         }
 
@@ -672,7 +674,7 @@
                 totalSeconds = parseInt(btn.getAttribute('data-m')) * 60;
                 remainingSeconds = totalSeconds;
                 updateDisplay();
-                // Removed startTimer() call here
+                // Removed startTimer() to pause on preset
             };
         });
 
