@@ -24,7 +24,7 @@
             justify-content: center;
             align-items: center;
             min-height: 100vh;
-            overflow: hidden; /* Prevent scrolling on mobile */
+            overflow: hidden;
         }
 
         .container {
@@ -42,14 +42,14 @@
             position: relative;
             width: 320px;
             height: 320px;
-            margin-bottom: 30px;
+            margin-bottom: 25px;
             display: flex;
             justify-content: center;
             align-items: center;
         }
 
         svg {
-            transform: rotate(-90deg);
+            transform: rotate(-90deg); /* Start from top */
             width: 100%;
             height: 100%;
         }
@@ -66,9 +66,7 @@
 
         .circle-progress {
             stroke: var(--primary-blue);
-            stroke-dasharray: 942; /* 2 * PI * r (approx 150 radius) */
-            stroke-dashoffset: 0;
-            transition: stroke-dashoffset 1s linear, stroke 0.3s;
+            transition: stroke-dashoffset 0.5s linear;
             filter: drop-shadow(0 0 8px var(--primary-glow));
         }
 
@@ -80,6 +78,7 @@
             align-items: center;
             justify-content: center;
             text-align: center;
+            width: 100%;
         }
 
         .timer-display {
@@ -93,13 +92,21 @@
 
         /* Input Mode Styles */
         .input-group {
-            display: none; /* Hidden by default */
-            gap: 5px;
-            align-items: center;
+            display: none;
+            flex-direction: row;
+            align-items: flex-end; /* Align inputs to bottom */
+            gap: 8px;
+            margin-bottom: 5px;
         }
         
         .input-group.active {
             display: flex;
+        }
+
+        .input-unit {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
 
         .time-input {
@@ -112,24 +119,28 @@
             text-align: center;
             outline: none;
             transition: border-color 0.2s;
+            padding-bottom: 5px;
         }
         .time-input:focus { border-bottom-color: var(--primary-blue); }
         .time-input::placeholder { color: var(--text-muted); opacity: 0.3; }
 
-        /* Remove spinner arrows from inputs */
+        .input-label {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            margin-top: 8px; /* Push label below line */
+            letter-spacing: 1px;
+            font-weight: 600;
+        }
+
+        .colon {
+            font-size: 2.5rem;
+            color: var(--text-muted);
+            margin-bottom: 25px; /* Align visually with inputs */
+        }
+
+        /* Remove spinner arrows */
         input::-webkit-outer-spin-button,
         input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-
-        .input-labels {
-            display: flex;
-            gap: 50px;
-            font-size: 0.75rem;
-            color: var(--text-muted);
-            margin-top: -10px;
-            margin-bottom: 20px;
-            opacity: 0; /* Hidden unless in edit mode */
-        }
-        .input-labels.active { opacity: 1; }
 
         /* --- CONTROLS --- */
         .controls {
@@ -142,11 +153,14 @@
         button {
             border: none;
             padding: 12px 28px;
-            border-radius: 50px; /* Fully rounded buttons */
+            border-radius: 50px;
             font-size: 1rem;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
@@ -155,6 +169,8 @@
             background-color: var(--primary-blue);
             color: white;
             box-shadow: 0 0 15px rgba(59, 130, 246, 0.4);
+            min-width: 120px;
+            justify-content: center;
         }
         .btn-primary:hover { background-color: #2563eb; transform: scale(1.05); }
         .btn-primary:active { transform: scale(0.95); }
@@ -166,13 +182,45 @@
         }
         .btn-secondary:hover { border-color: var(--text-main); color: var(--text-main); }
 
+        /* Icon SVG styling */
+        .icon { width: 18px; height: 18px; fill: currentColor; }
+
+        /* --- SOUND SELECTOR --- */
+        .sound-selector-wrapper {
+            margin-bottom: 20px;
+            position: relative;
+        }
+        
+        select {
+            appearance: none;
+            background-color: var(--card-bg);
+            color: var(--text-muted);
+            border: 1px solid var(--track-color);
+            padding: 8px 35px 8px 15px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            outline: none;
+        }
+        select:hover { border-color: var(--primary-blue); color: var(--text-main); }
+
+        /* Custom arrow for select */
+        .select-arrow {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            pointer-events: none;
+            color: var(--text-muted);
+            font-size: 0.8rem;
+        }
+
         /* --- PRESETS & EXTRAS --- */
         .presets {
             display: flex;
             flex-wrap: wrap;
             justify-content: center;
             gap: 10px;
-            margin-top: 10px;
         }
 
         .preset-btn {
@@ -211,6 +259,18 @@
 <body>
 
     <div class="container">
+        <!-- Sound Selector -->
+        <div class="sound-selector-wrapper">
+            <select id="soundSelect">
+                <option value="electronic">Beep (Electronic)</option>
+                <option value="classic">Classic Alarm Clock</option>
+                <option value="rooster">Rooster</option>
+                <option value="siren">Siren</option>
+                <option value="heavy">Heavy Metal (Synth)</option>
+            </select>
+            <span class="select-arrow">▼</span>
+        </div>
+
         <!-- Circular Progress -->
         <div class="timer-circle">
             <svg>
@@ -224,20 +284,30 @@
                 
                 <!-- Custom Input Fields -->
                 <div class="input-group" id="inputGroup">
-                    <input type="number" class="time-input" id="inH" placeholder="00" max="99">
-                    <span style="font-size:2rem; color:var(--text-muted)">:</span>
-                    <input type="number" class="time-input" id="inM" placeholder="00" max="59">
-                    <span style="font-size:2rem; color:var(--text-muted)">:</span>
-                    <input type="number" class="time-input" id="inS" placeholder="00" max="59">
-                </div>
-                <div class="input-labels" id="inputLabels">
-                    <span>HR</span><span>MIN</span><span>SEC</span>
+                    <div class="input-unit">
+                        <input type="number" class="time-input" id="inH" placeholder="00" max="99">
+                        <span class="input-label">HR</span>
+                    </div>
+                    <span class="colon">:</span>
+                    <div class="input-unit">
+                        <input type="number" class="time-input" id="inM" placeholder="00" max="59">
+                        <span class="input-label">MIN</span>
+                    </div>
+                    <span class="colon">:</span>
+                    <div class="input-unit">
+                        <input type="number" class="time-input" id="inS" placeholder="00" max="59">
+                        <span class="input-label">SEC</span>
+                    </div>
                 </div>
             </div>
         </div>
         
         <div class="controls">
-            <button id="startBtn" class="btn-primary">Start</button>
+            <button id="startBtn" class="btn-primary">
+                <!-- Play Icon -->
+                <svg class="icon" id="playIcon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                <span id="btnText">Start</span>
+            </button>
             <button id="resetBtn" class="btn-secondary">Reset</button>
         </div>
 
@@ -253,8 +323,12 @@
         <div class="status" id="statusText">Ready to focus</div>
     </div>
 
+    <!-- AUDIO FILES (Hidden) -->
+    <!-- Using reliable raw git content for sound sources -->
+    <audio id="audioClassic" src="https://raw.githubusercontent.com/simonjvardy/alarm-clock/master/assets/alarm.mp3" preload="auto"></audio>
+
     <script>
-        // --- WORKER (Background Thread) ---
+        // --- WORKER ---
         const workerCode = `
             let interval;
             self.onmessage = function(e) {
@@ -275,68 +349,116 @@
         const resetBtn = document.getElementById('resetBtn');
         const statusText = document.getElementById('statusText');
         const customToggle = document.getElementById('customToggle');
-        
-        // Input Elements
+        const btnText = document.getElementById('btnText');
+        const playIcon = document.getElementById('playIcon');
+        const soundSelect = document.getElementById('soundSelect');
+        const audioClassic = document.getElementById('audioClassic');
+
         const inputGroup = document.getElementById('inputGroup');
-        const inputLabels = document.getElementById('inputLabels');
         const inH = document.getElementById('inH');
         const inM = document.getElementById('inM');
         const inS = document.getElementById('inS');
+
+        // --- ICONS ---
+        const ICON_PLAY = '<path d="M8 5v14l11-7z"/>';
+        const ICON_PAUSE = '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>';
 
         // --- VARIABLES ---
         let totalSeconds = 15 * 60; 
         let remainingSeconds = totalSeconds;
         let isRunning = false;
+        let isInputMode = false;
         let wakeLock = null;
         let audioContext = null;
-        let isInputMode = false;
+        let alarmInterval = null;
 
-        // Calculate Circle Circumference for Progress Bar
+        // Circular Progress Setup
         const radius = progressRing.r.baseVal.value;
         const circumference = radius * 2 * Math.PI;
         progressRing.style.strokeDasharray = `${circumference} ${circumference}`;
         progressRing.style.strokeDashoffset = 0;
 
-        // --- WAKE LOCK (Keeps Laptop Awake) ---
+        // --- AUDIO SYSTEM ---
+        function playBeep(freq, type = 'sine') {
+            const osc = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, audioContext.currentTime);
+            gain.gain.setValueAtTime(0.1, audioContext.currentTime);
+            gain.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.5);
+            osc.connect(gain);
+            gain.connect(audioContext.destination);
+            osc.start();
+            osc.stop(audioContext.currentTime + 0.5);
+        }
+
+        function playSelectedSound() {
+            if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioContext.state === 'suspended') audioContext.resume();
+
+            const style = soundSelect.value;
+
+            // 1. Electronic Beep (Default)
+            if (style === 'electronic') {
+                playBeep(880);
+                setTimeout(() => playBeep(880), 200);
+                setTimeout(() => playBeep(880), 400);
+            }
+            // 2. Classic Alarm (MP3)
+            else if (style === 'classic') {
+                audioClassic.currentTime = 0;
+                audioClassic.play().catch(e => console.log('Audio play blocked', e));
+            }
+            // 3. Rooster (Synthesized approximation)
+            else if (style === 'rooster') {
+                playBeep(500, 'sawtooth');
+                setTimeout(() => playBeep(800, 'sawtooth'), 150);
+                setTimeout(() => playBeep(500, 'sawtooth'), 300);
+            }
+            // 4. Siren
+            else if (style === 'siren') {
+                 const osc = audioContext.createOscillator();
+                 const gain = audioContext.createGain();
+                 osc.type = 'triangle';
+                 osc.frequency.setValueAtTime(600, audioContext.currentTime);
+                 osc.frequency.linearRampToValueAtTime(900, audioContext.currentTime + 0.5);
+                 osc.frequency.linearRampToValueAtTime(600, audioContext.currentTime + 1.0);
+                 gain.gain.value = 0.2;
+                 osc.connect(gain);
+                 gain.connect(audioContext.destination);
+                 osc.start();
+                 osc.stop(audioContext.currentTime + 1.0);
+            }
+            // 5. Heavy (Low pitch sawtooth)
+            else if (style === 'heavy') {
+                playBeep(150, 'sawtooth');
+                setTimeout(() => playBeep(150, 'sawtooth'), 200);
+            }
+        }
+
+        function startAlarmLoop() {
+            // Play immediately
+            playSelectedSound();
+            // Loop every 2 seconds until Reset is clicked
+            alarmInterval = setInterval(playSelectedSound, 2000);
+            statusText.textContent = "Time's up! (Click Reset to stop)";
+            document.title = "Time's Up!";
+        }
+
+        // --- WAKE LOCK ---
         async function requestWakeLock() {
             try {
                 if ('wakeLock' in navigator) {
                     wakeLock = await navigator.wakeLock.request('screen');
-                    console.log('Wake Lock is active');
                 }
-            } catch (err) {
-                console.error(`${err.name}, ${err.message}`);
-                // Only shows if there's a specific error, harmless otherwise
-            }
+            } catch (err) { console.error(err); }
         }
 
         function releaseWakeLock() {
-            if (wakeLock !== null) {
-                wakeLock.release().then(() => wakeLock = null);
-                console.log('Wake Lock released');
+            if (wakeLock) {
+                wakeLock.release();
+                wakeLock = null;
             }
-        }
-
-        // --- AUDIO ---
-        function playAlarm() {
-            if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            
-            const osc = audioContext.createOscillator();
-            const gain = audioContext.createGain();
-            
-            osc.type = 'sine';
-            // Beep pattern: High Low High
-            osc.frequency.setValueAtTime(880, audioContext.currentTime);
-            osc.frequency.setValueAtTime(440, audioContext.currentTime + 0.2);
-            osc.frequency.setValueAtTime(880, audioContext.currentTime + 0.4);
-
-            gain.gain.setValueAtTime(0.3, audioContext.currentTime);
-            gain.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.6);
-
-            osc.connect(gain);
-            gain.connect(audioContext.destination);
-            osc.start();
-            osc.stop(audioContext.currentTime + 0.6);
         }
 
         // --- LOGIC ---
@@ -344,126 +466,125 @@
             const h = Math.floor(totalSecs / 3600);
             const m = Math.floor((totalSecs % 3600) / 60);
             const s = totalSecs % 60;
-            // Only show hours if > 0, otherwise MM:SS
-            if (h > 0) {
-                return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-            }
+            if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
             return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
         }
 
         function setProgress(percent) {
+            // Clockwise: We reduce the dashoffset from Full Circumference down to 0
+            // Logic: 0% = Full offset (empty), 100% = 0 offset (full)
+            // But timer goes from 100% (full) to 0% (empty)
+            // So:
             const offset = circumference - (percent / 100) * circumference;
-            progressRing.style.strokeDashoffset = offset;
+            progressRing.style.strokeDashoffset = -offset; // Negative to go clockwise
         }
 
         function updateDisplay() {
             display.textContent = formatTime(remainingSeconds);
-            // Calculate percentage
             const percent = totalSeconds === 0 ? 0 : (remainingSeconds / totalSeconds) * 100;
             setProgress(percent);
             document.title = isRunning ? `(${formatTime(remainingSeconds)}) Timer` : 'Focus';
         }
 
         function finishTimer() {
-            stopTimer();
+            stopTimer(false); // Stop worker but don't reset text
             remainingSeconds = 0;
             updateDisplay();
-            playAlarm();
-            let count = 0;
-            const alarmInterval = setInterval(() => {
-                count++;
-                playAlarm();
-                if (count >= 5) clearInterval(alarmInterval); // Beep 5 times
-            }, 1000);
-            statusText.textContent = "Time's up!";
-            alert("Timer Complete!");
+            startAlarmLoop();
+            
+            // Switch Start button to "Stop Sound" visually
+            playIcon.innerHTML = '<rect x="6" y="6" width="12" height="12"/>';
+            btnText.textContent = 'Stop Sound';
+            startBtn.classList.add('alarm-ringing');
+            startBtn.onclick = resetTimer; // Clicking start button now resets
         }
 
         function startTimer() {
-            if (isInputMode) confirmCustomTime(); // If in edit mode, save time first
+            if (isInputMode) confirmCustomTime();
 
             if (isRunning) {
-                // Pause
+                // User clicked Pause
                 stopTimer();
                 return;
             }
             
-            // Audio Context needs user gesture init
+            // Init Audio Context
             if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
             if (audioContext.state === 'suspended') audioContext.resume();
 
             isRunning = true;
             worker.postMessage('start');
-            requestWakeLock(); // Enable Wake Lock
+            requestWakeLock();
             
-            startBtn.textContent = 'Pause';
+            // UI Updates
+            playIcon.innerHTML = ICON_PAUSE;
+            btnText.textContent = 'Pause';
             startBtn.style.backgroundColor = 'var(--text-muted)';
             statusText.textContent = 'Focusing...';
-            
-            // Visual tweak
-            progressRing.style.stroke = 'var(--primary-blue)';
         }
 
-        function stopTimer() {
+        function stopTimer(manual = true) {
             isRunning = false;
             worker.postMessage('stop');
-            releaseWakeLock(); // Release Wake Lock
+            releaseWakeLock();
             
-            startBtn.textContent = 'Start';
-            startBtn.style.backgroundColor = 'var(--primary-blue)';
-            statusText.textContent = 'Paused';
+            if (manual) {
+                playIcon.innerHTML = ICON_PLAY;
+                btnText.textContent = 'Start';
+                startBtn.style.backgroundColor = 'var(--primary-blue)';
+                statusText.textContent = 'Paused';
+            }
         }
 
         function resetTimer() {
-            stopTimer();
+            stopTimer(true);
+            // Clear alarm loop if ringing
+            if (alarmInterval) {
+                clearInterval(alarmInterval);
+                alarmInterval = null;
+                // Fix button back to normal if it was "Stop Sound"
+                startBtn.onclick = startTimer;
+            }
+            
             remainingSeconds = totalSeconds;
             updateDisplay();
             statusText.textContent = 'Ready';
         }
 
-        // --- CUSTOM INPUT LOGIC ---
+        // --- CUSTOM INPUT ---
         function toggleInputMode() {
             if (isRunning) stopTimer();
-            
+            if (alarmInterval) resetTimer(); // Stop sound if setting time
+
             isInputMode = !isInputMode;
             
             if (isInputMode) {
-                // Show Inputs, Hide Display
                 display.style.display = 'none';
                 inputGroup.classList.add('active');
-                inputLabels.classList.add('active');
                 customToggle.textContent = 'Cancel Edit';
                 statusText.textContent = 'Enter time';
-                
-                // Pre-fill inputs with 0
-                inH.value = ''; inM.value = ''; inS.value = '';
                 inM.focus();
+                // Clear inputs
+                inH.value = ''; inM.value = ''; inS.value = '';
             } else {
-                // Hide Inputs, Show Display
                 display.style.display = 'block';
                 inputGroup.classList.remove('active');
-                inputLabels.classList.remove('active');
                 customToggle.textContent = 'Set Custom Time';
                 updateDisplay();
             }
         }
 
         function confirmCustomTime() {
-            // Calculate seconds from inputs
             const h = parseInt(inH.value) || 0;
             const m = parseInt(inM.value) || 0;
             const s = parseInt(inS.value) || 0;
-            
             const newTotal = (h * 3600) + (m * 60) + s;
             
             if (newTotal > 0) {
                 totalSeconds = newTotal;
                 remainingSeconds = totalSeconds;
-                // Exit input mode
-                toggleInputMode(); 
-                statusText.textContent = 'Custom time set';
+                toggleInputMode();
             } else {
-                // If 0, just exit without saving (or set to default)
                 toggleInputMode();
             }
         }
@@ -479,35 +600,30 @@
             }
         };
 
-        // --- EVENT LISTENERS ---
-        startBtn.addEventListener('click', startTimer);
-        resetBtn.addEventListener('click', resetTimer);
-        customToggle.addEventListener('click', toggleInputMode);
+        // --- LISTENERS ---
+        startBtn.onclick = startTimer; // Use onclick property for easy override
+        resetBtn.onclick = resetTimer;
+        customToggle.onclick = toggleInputMode;
 
-        // Presets
         document.querySelectorAll('.preset-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                if (isInputMode) toggleInputMode(); // Close input if open
+            btn.onclick = () => {
+                if (isInputMode) toggleInputMode();
+                if (alarmInterval) resetTimer();
                 stopTimer();
-                const m = parseInt(btn.getAttribute('data-m'));
-                totalSeconds = m * 60;
+                totalSeconds = parseInt(btn.getAttribute('data-m')) * 60;
                 remainingSeconds = totalSeconds;
                 updateDisplay();
                 startTimer();
+            };
+        });
+
+        [inH, inM, inS].forEach(inp => {
+            inp.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') { confirmCustomTime(); startTimer(); }
             });
         });
 
-        // Handle Enter key in inputs
-        [inH, inM, inS].forEach(input => {
-            input.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    confirmCustomTime();
-                    startTimer();
-                }
-            });
-        });
-
-        // Re-request wake lock if tab visibility changes (browser sometimes drops it)
+        // Re-acquire WakeLock on visibility return
         document.addEventListener('visibilitychange', async () => {
             if (wakeLock !== null && document.visibilityState === 'visible') {
                 requestWakeLock();
