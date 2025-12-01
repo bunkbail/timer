@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Focus Timer</title>
+    <!-- Stylish Blue Clock Favicon -->
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%233b82f6'%3E%3Cpath d='M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z'/%3E%3C/svg%3E">
     <style>
         :root {
@@ -422,8 +423,8 @@
         };
 
         // --- VARIABLES ---
-        let totalSeconds = 15 * 60; 
-        let remainingSeconds = totalSeconds;
+        let totalSeconds = 0; // Default to 00:00
+        let remainingSeconds = 0;
         let isRunning = false;
         let isInputMode = false;
         let wakeLock = null;
@@ -431,9 +432,8 @@
         let masterVolume = 1.0; 
         
         // SINGLE PERSISTENT AUDIO PLAYER
-        // This is key for streaming/buffering. We don't recreate it.
         const audioPlayer = new Audio();
-        audioPlayer.preload = "auto"; // Tell browser to buffer automatically
+        audioPlayer.preload = "auto";
         let isPreviewing = false;
 
         // Circular Progress
@@ -446,37 +446,29 @@
 
         // Initialize Audio
         function initAudio() {
-            // Set source immediately to allow background buffering
             if (audioPlayer.src !== SOUNDS[soundSelect.value]) {
                 audioPlayer.src = SOUNDS[soundSelect.value];
             }
             audioPlayer.volume = masterVolume;
         }
 
-        // Switch Sound immediately when dropdown changes
+        // Switch Sound
         function switchSound() {
             const wasPlaying = isPreviewing;
             if (wasPlaying) stopAudio();
             
-            // Changing src triggers the browser to start buffering the new file
             audioPlayer.src = SOUNDS[soundSelect.value];
-            audioPlayer.load(); // Force buffer start
+            audioPlayer.load();
             
-            if (wasPlaying) {
-                // If we were previewing, keep playing the new sound
-                togglePreview(); 
-            }
+            if (wasPlaying) togglePreview(); 
         }
 
         function playSound() {
             audioPlayer.currentTime = 0;
             audioPlayer.volume = masterVolume;
             const playPromise = audioPlayer.play();
-            
             if (playPromise !== undefined) {
-                playPromise.catch(error => {
-                    console.error("Playback failed (likely user interaction needed)", error);
-                });
+                playPromise.catch(error => { console.error("Playback failed", error); });
             }
         }
 
@@ -489,9 +481,6 @@
             }
         }
 
-        // The "Unlock" trick:
-        // Play and immediately pause on user interaction (Start button)
-        // This authorizes the browser to play loud sound later without interaction.
         function unlockAudio() {
             const originalVol = audioPlayer.volume;
             audioPlayer.volume = 0; 
@@ -509,20 +498,16 @@
                 isPreviewing = true;
                 previewBtn.textContent = '■';
                 playSound();
-                
-                // Reset button when sound ends naturally
                 audioPlayer.onended = () => {
                     isPreviewing = false;
                     previewBtn.textContent = '▶';
-                    audioPlayer.onended = null; // Clean up listener
+                    audioPlayer.onended = null;
                 };
             }
         }
 
         function startAlarmLoop() {
-            // Play immediately
             playSound();
-            // Loop every 3s
             alarmInterval = setInterval(() => {
                 playSound();
             }, 3000);
@@ -583,12 +568,18 @@
         function startTimer() {
             if (isInputMode) confirmCustomTime();
 
+            // Handle start on 00:00 - open input instead
+            if (remainingSeconds === 0 && totalSeconds === 0) {
+                toggleInputMode();
+                return;
+            }
+
             if (isRunning) {
-                stopTimer(); // Pause
+                stopTimer();
                 return;
             }
             
-            unlockAudio(); // Authorize Audio
+            unlockAudio();
 
             isRunning = true;
             worker.postMessage('start');
@@ -677,11 +668,11 @@
             btn.onclick = () => {
                 if (isInputMode) toggleInputMode(); 
                 if (alarmInterval) resetTimer();
-                stopTimer();
+                stopTimer(); // Ensure stopped
                 totalSeconds = parseInt(btn.getAttribute('data-m')) * 60;
                 remainingSeconds = totalSeconds;
                 updateDisplay();
-                startTimer();
+                // Removed startTimer() call here
             };
         });
 
@@ -695,7 +686,7 @@
             if (wakeLock !== null && document.visibilityState === 'visible') requestWakeLock();
         });
 
-        // Initialize audio on load
+        // Init
         initAudio();
         updateDisplay();
     </script>
