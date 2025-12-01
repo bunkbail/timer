@@ -34,15 +34,22 @@
             flex-direction: column;
             align-items: center;
             width: 100%;
-            max-width: 480px; /* Slightly wider for shadows */
+            max-width: 480px;
             padding: 20px;
         }
 
-        /* --- SOUND SETTINGS --- */
+        /* --- SETTINGS ROW (Sound & Volume) --- */
+        .settings-bar {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 25px;
+            align-items: center;
+            width: 100%;
+            justify-content: center;
+        }
+
         .sound-row {
             display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
             align-items: center;
             background: var(--card-bg);
             padding: 5px;
@@ -52,8 +59,8 @@
 
         select {
             appearance: none;
-            background-color: transparent;
-            color: var(--text-muted);
+            background-color: var(--card-bg); /* Fixed styling */
+            color: var(--text-main);
             border: none;
             padding: 8px 10px;
             font-size: 0.9rem;
@@ -61,8 +68,13 @@
             outline: none;
             text-align: center;
             font-weight: 500;
+            border-radius: 8px;
         }
-        select:hover { color: var(--text-main); }
+        select option {
+            background-color: var(--card-bg);
+            color: var(--text-main);
+        }
+        select:hover { color: var(--primary-blue); }
 
         .preview-btn {
             background: transparent;
@@ -79,10 +91,39 @@
         }
         .preview-btn:active { transform: scale(0.9); }
 
+        /* Volume Slider */
+        .volume-control {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-muted);
+        }
+        .volume-icon { width: 16px; height: 16px; fill: currentColor; }
+        
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 80px;
+            height: 4px;
+            background: var(--track-color);
+            border-radius: 2px;
+            outline: none;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--primary-blue);
+            cursor: pointer;
+            box-shadow: 0 0 10px var(--primary-glow);
+            transition: transform 0.1s;
+        }
+        input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+
         /* --- CIRCULAR PROGRESS BAR --- */
         .timer-circle {
             position: relative;
-            width: 360px; /* Increased size for shadow room */
+            width: 360px;
             height: 360px;
             margin-bottom: 25px;
             display: flex;
@@ -91,10 +132,11 @@
         }
 
         svg {
-            transform: rotate(-90deg);
+            /* Rotate -90 to start top, ScaleY -1 to flip direction to Clockwise */
+            transform: rotate(-90deg) scaleY(-1);
             width: 100%;
             height: 100%;
-            overflow: visible; /* Important for shadow */
+            overflow: visible;
         }
 
         circle {
@@ -109,8 +151,8 @@
 
         .circle-progress {
             stroke: var(--primary-blue);
-            transition: stroke-dashoffset 0.5s linear;
-            filter: drop-shadow(0 0 12px var(--primary-glow)); /* Enhanced Glow */
+            transition: stroke-dashoffset 1s linear; /* Smooth linear movement */
+            filter: drop-shadow(0 0 12px var(--primary-glow));
         }
 
         /* --- TIMER DISPLAY & INPUTS --- */
@@ -124,6 +166,7 @@
             width: 100%;
             height: 100%;
             top: 0; left: 0;
+            z-index: 5;
         }
 
         .timer-display {
@@ -131,14 +174,13 @@
             font-weight: 300;
             font-variant-numeric: tabular-nums;
             color: var(--text-main);
-            cursor: pointer; /* Indicates clickable */
             user-select: none;
-            transition: color 0.2s, transform 0.2s;
+            transition: color 0.2s, transform 0.2s, opacity 0.2s;
         }
-        .timer-display:hover {
-            color: var(--primary-blue);
-            transform: scale(1.02);
-        }
+        /* Only show pointer if editable */
+        .timer-display.editable { cursor: pointer; }
+        .timer-display.editable:hover { color: var(--primary-blue); transform: scale(1.02); }
+        .timer-display.locked { cursor: default; opacity: 1; }
 
         /* Input Mode Styles */
         .input-group {
@@ -189,7 +231,6 @@
             opacity: 0.5;
         }
 
-        /* Remove spinner arrows */
         input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 
         /* --- CONTROLS --- */
@@ -225,7 +266,7 @@
         .btn-primary:hover { background-color: #2563eb; transform: scale(1.05); }
         .btn-primary:active { transform: scale(0.95); }
         .btn-primary.alarm-ringing {
-            background-color: #ef4444; /* Red when ringing */
+            background-color: #ef4444; 
             box-shadow: 0 0 20px rgba(239, 68, 68, 0.5);
             animation: pulse 1s infinite;
         }
@@ -259,42 +300,43 @@
         }
         .preset-btn:hover { border-color: var(--primary-blue); color: var(--primary-blue); }
 
-        .status {
-            position: absolute;
-            bottom: 10px;
-            font-size: 0.8rem;
-            color: var(--text-muted);
-        }
-
     </style>
 </head>
 <body>
 
     <div class="container">
         
-        <!-- Sound Settings -->
-        <div class="sound-row">
-            <select id="soundSelect">
-                <option value="digital">Digital Alarm</option>
-                <option value="classic">Classic Beep</option>
-                <option value="bell">School Bell</option>
-                <option value="sci-fi">Space Alert</option>
-                <option value="soft">Soft Chime</option>
-            </select>
-            <button class="preview-btn" id="previewBtn" title="Preview Sound">▶</button>
+        <!-- Settings Bar -->
+        <div class="settings-bar">
+            <!-- Sound Selector -->
+            <div class="sound-row">
+                <select id="soundSelect">
+                    <option value="digital">Digital Alarm</option>
+                    <option value="classic">Classic Beep</option>
+                    <option value="bell">School Bell</option>
+                    <option value="sci-fi">Space Alert</option>
+                    <option value="soft">Soft Chime</option>
+                </select>
+                <button class="preview-btn" id="previewBtn" title="Preview Sound">▶</button>
+            </div>
+
+            <!-- Volume Control -->
+            <div class="volume-control" title="Volume">
+                <svg class="volume-icon" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+                <input type="range" id="volumeSlider" min="0" max="1" step="0.1" value="0.5">
+            </div>
         </div>
 
         <!-- Circular Progress -->
         <div class="timer-circle">
-            <!-- viewBox increased to 360 to prevent shadow clipping -->
             <svg viewBox="0 0 360 360">
                 <circle class="circle-bg" cx="180" cy="180" r="150"></circle>
                 <circle class="circle-progress" id="progressRing" cx="180" cy="180" r="150"></circle>
             </svg>
             
             <div class="time-wrapper">
-                <!-- Standard Display (Clickable) -->
-                <div class="timer-display" id="display" title="Click to edit time">00:00:00</div>
+                <!-- Standard Display (Clickable only when stopped) -->
+                <div class="timer-display editable" id="display" title="Click to edit time">00:00:00</div>
                 
                 <!-- Custom Input Fields -->
                 <div class="input-group" id="inputGroup">
@@ -331,7 +373,6 @@
             <button class="preset-btn" data-m="60">1 Hour</button>
         </div>
         
-        <div class="status" id="statusText">Ready to focus</div>
     </div>
 
     <script>
@@ -354,13 +395,13 @@
         const progressRing = document.getElementById('progressRing');
         const startBtn = document.getElementById('startBtn');
         const resetBtn = document.getElementById('resetBtn');
-        const statusText = document.getElementById('statusText');
         const btnText = document.getElementById('btnText');
         const playIcon = document.getElementById('playIcon');
         
-        // Sound & Input
+        // Sound, Volume & Input
         const soundSelect = document.getElementById('soundSelect');
         const previewBtn = document.getElementById('previewBtn');
+        const volumeSlider = document.getElementById('volumeSlider');
         const inputGroup = document.getElementById('inputGroup');
         const inH = document.getElementById('inH');
         const inM = document.getElementById('inM');
@@ -379,6 +420,7 @@
         let wakeLock = null;
         let audioContext = null;
         let alarmInterval = null;
+        let masterVolume = 0.5;
 
         // Circular Progress Setup (2 * PI * 150 approx 942)
         const radius = progressRing.r.baseVal.value;
@@ -386,21 +428,24 @@
         progressRing.style.strokeDasharray = `${circumference} ${circumference}`;
         progressRing.style.strokeDashoffset = 0;
 
-        // --- AUDIO ENGINE (Synthesizer) ---
-        // This generates sounds mathematically to ensure they always load and play.
+        // --- AUDIO ENGINE ---
         function getAudioContext() {
             if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
             if (audioContext.state === 'suspended') audioContext.resume();
             return audioContext;
         }
 
-        function osc(freq, type, startTime, duration, vol = 0.1) {
+        function osc(freq, type, startTime, duration, rawVol = 0.1) {
             const ctx = getAudioContext();
             const o = ctx.createOscillator();
             const g = ctx.createGain();
             o.type = type;
             o.frequency.setValueAtTime(freq, startTime);
-            g.gain.setValueAtTime(vol, startTime);
+            
+            // Apply Master Volume to the raw volume
+            const finalVol = rawVol * masterVolume;
+            
+            g.gain.setValueAtTime(finalVol, startTime);
             g.gain.linearRampToValueAtTime(0, startTime + duration);
             o.connect(g);
             g.connect(ctx.destination);
@@ -412,49 +457,44 @@
             const ctx = getAudioContext();
             const now = ctx.currentTime;
             const style = soundSelect.value;
+            const v = masterVolume; // local ref
 
             if (style === 'classic') {
-                // High pitch sine beep
-                osc(880, 'sine', now, 0.1);
-                osc(880, 'sine', now + 0.15, 0.1);
-                osc(880, 'sine', now + 0.3, 0.1);
+                osc(880, 'sine', now, 0.1, 0.2);
+                osc(880, 'sine', now + 0.15, 0.1, 0.2);
+                osc(880, 'sine', now + 0.3, 0.1, 0.2);
             } 
             else if (style === 'digital') {
-                // Digital Clock BEEP BEEP BEEP
                 osc(2000, 'square', now, 0.1, 0.05);
                 osc(2000, 'square', now + 0.12, 0.1, 0.05);
                 osc(2000, 'square', now + 0.24, 0.1, 0.05);
                 osc(2000, 'square', now + 0.36, 0.1, 0.05);
             }
             else if (style === 'bell') {
-                // Complex harmonics for a bell sound
-                osc(500, 'triangle', now, 1.5, 0.1);
-                osc(1000, 'sine', now, 1.0, 0.05);
-                osc(1500, 'sine', now, 0.8, 0.03);
+                osc(500, 'triangle', now, 1.5, 0.3);
+                osc(1000, 'sine', now, 1.0, 0.1);
+                osc(1500, 'sine', now, 0.8, 0.05);
             }
             else if (style === 'sci-fi') {
-                // Frequency sweep
                 const o = ctx.createOscillator();
                 const g = ctx.createGain();
                 o.frequency.setValueAtTime(300, now);
                 o.frequency.exponentialRampToValueAtTime(1200, now + 0.4);
-                g.gain.setValueAtTime(0.1, now);
+                g.gain.setValueAtTime(0.2 * v, now);
                 g.gain.linearRampToValueAtTime(0, now + 0.4);
                 o.connect(g); g.connect(ctx.destination);
                 o.start(now); o.stop(now + 0.4);
             }
             else if (style === 'soft') {
-                // Gentle Gong/Chime
-                osc(330, 'sine', now, 2.0, 0.1);
-                osc(440, 'sine', now + 0.1, 2.0, 0.05);
+                osc(330, 'sine', now, 2.0, 0.3);
+                osc(440, 'sine', now + 0.1, 2.0, 0.1);
             }
         }
 
         function startAlarmLoop() {
             playSoundEffect();
-            // Loop duration depends on urgency, default 2s
-            alarmInterval = setInterval(playSoundEffect, 1500);
-            statusText.textContent = "Time's up!";
+            // SLOWER LOOP: 3500ms (3.5 seconds)
+            alarmInterval = setInterval(playSoundEffect, 3500);
             document.title = "Time's Up!";
         }
 
@@ -462,7 +502,7 @@
         async function requestWakeLock() {
             try {
                 if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen');
-            } catch (err) { console.log("Wake Lock not supported"); }
+            } catch (err) {}
         }
         function releaseWakeLock() {
             if (wakeLock) { wakeLock.release(); wakeLock = null; }
@@ -478,11 +518,10 @@
         }
 
         function setProgress(percent) {
-            // CLOCKWISE Logic:
-            // strokeDasharray is full circumference.
-            // offset 0 = Full circle. offset = circumference = Empty.
-            // We want to go from Full (0 offset) to Empty (circumference offset)
-            const offset = (1 - (percent / 100)) * circumference; 
+            // CLOCKWISE logic with SCALEY(-1) SVG:
+            // Since SVG is mirrored vertically, the drawing path is reversed.
+            // A positive dashoffset reduces the line "clockwise" visually in this configuration.
+            const offset = circumference - ((percent / 100) * circumference);
             progressRing.style.strokeDashoffset = offset;
         }
 
@@ -490,7 +529,18 @@
             display.textContent = formatTime(remainingSeconds);
             const percent = totalSeconds === 0 ? 0 : (remainingSeconds / totalSeconds) * 100;
             setProgress(percent);
-            document.title = isRunning ? `(${formatTime(remainingSeconds)}) Focus` : 'Focus Timer';
+            
+            if (isRunning) document.title = `(${formatTime(remainingSeconds)}) Focus`;
+            else document.title = 'Focus Timer';
+
+            // Lock UI visual
+            if (isRunning || alarmInterval) {
+                display.classList.remove('editable');
+                display.classList.add('locked');
+            } else {
+                display.classList.add('editable');
+                display.classList.remove('locked');
+            }
         }
 
         function finishTimer() {
@@ -510,11 +560,11 @@
             if (isInputMode) confirmCustomTime();
 
             if (isRunning) {
-                stopTimer(); // Acts as pause
+                stopTimer(); // Pause
                 return;
             }
             
-            getAudioContext(); // Init Audio
+            getAudioContext(); 
             isRunning = true;
             worker.postMessage('start');
             requestWakeLock();
@@ -522,7 +572,7 @@
             playIcon.innerHTML = ICON_PAUSE;
             btnText.textContent = 'Pause';
             startBtn.style.backgroundColor = 'var(--text-muted)';
-            statusText.textContent = 'Focusing...';
+            updateDisplay(); // Update lock state
         }
 
         function stopTimer(manual = true) {
@@ -534,8 +584,8 @@
                 playIcon.innerHTML = ICON_PLAY;
                 btnText.textContent = 'Start';
                 startBtn.style.backgroundColor = 'var(--primary-blue)';
-                statusText.textContent = 'Paused';
             }
+            updateDisplay();
         }
 
         function resetTimer() {
@@ -548,20 +598,18 @@
             }
             remainingSeconds = totalSeconds;
             updateDisplay();
-            statusText.textContent = 'Ready';
         }
 
         // --- CUSTOM INPUT LOGIC ---
         function toggleInputMode() {
-            if (isRunning) stopTimer();
-            if (alarmInterval) resetTimer();
+            // LOCK: Do not open if running or ringing
+            if (isRunning || alarmInterval) return;
 
             isInputMode = !isInputMode;
             
             if (isInputMode) {
                 display.style.display = 'none';
                 inputGroup.classList.add('active');
-                statusText.textContent = 'Enter time or click Start';
                 
                 // Clear inputs for fresh entry
                 inH.value = ''; inM.value = ''; inS.value = '';
@@ -583,7 +631,6 @@
                 totalSeconds = newTotal;
                 remainingSeconds = totalSeconds;
             }
-            // We don't toggle mode off here explicitly, startTimer handles it
             isInputMode = false;
             display.style.display = 'block';
             inputGroup.classList.remove('active');
@@ -605,11 +652,17 @@
         startBtn.onclick = startTimer;
         resetBtn.onclick = resetTimer;
         
-        // Click Display to Edit
+        // Volume Change
+        volumeSlider.addEventListener('input', (e) => {
+            masterVolume = parseFloat(e.target.value);
+        });
+
+        // Click Display to Edit (Checked inside function for lock status)
         display.addEventListener('click', toggleInputMode);
 
         // Sound Preview
         previewBtn.addEventListener('click', () => {
+            getAudioContext(); // Ensure AudioContext is ready
             playSoundEffect();
         });
 
@@ -636,7 +689,6 @@
             });
         });
 
-        // Re-acquire WakeLock
         document.addEventListener('visibilitychange', async () => {
             if (wakeLock !== null && document.visibilityState === 'visible') {
                 requestWakeLock();
