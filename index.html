@@ -57,7 +57,6 @@
             border: 1px solid var(--track-color);
         }
 
-        /* Themed Dropdown */
         select {
             appearance: none;
             background-color: var(--card-bg);
@@ -325,7 +324,7 @@
             <!-- Volume Control -->
             <div class="volume-control" title="Volume">
                 <svg class="volume-icon" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
-                <input type="range" id="volumeSlider" min="0" max="1" step="0.05" value="0.5">
+                <input type="range" id="volumeSlider" min="0" max="1" step="0.1" value="1.0">
             </div>
         </div>
 
@@ -414,13 +413,14 @@
         const ICON_PAUSE = '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>';
         const ICON_STOP = '<rect x="6" y="6" width="12" height="12"/>';
 
-        // --- AUDIO SOURCES (Using reliable raw GitHub links) ---
+        // --- AUDIO SOURCES (Correct CDN Links) ---
+        // These links use jsDelivr to ensure correct MIME types so audio plays in all browsers.
         const SOUNDS = {
-            classic: 'https://raw.githubusercontent.com/kyleledbetter/react-alarm-clock/master/public/sounds/alarm.mp3',
-            digital: 'https://raw.githubusercontent.com/pepeiv/timer/master/public/alarm.mp3',
-            bell: 'https://raw.githubusercontent.com/kelvin-wong/boxing-timer/master/public/media/bell.mp3',
-            rooster: 'https://raw.githubusercontent.com/Mombali-S/Alarm-Clock/master/sounds/rooster.mp3',
-            scifi: 'https://raw.githubusercontent.com/b-mc2/react-timer/master/public/alarm.mp3'
+            classic: 'https://cdn.jsdelivr.net/gh/kyleledbetter/react-alarm-clock@master/public/sounds/alarm.mp3',
+            digital: 'https://cdn.jsdelivr.net/gh/pepeiv/timer@master/public/alarm.mp3',
+            bell: 'https://cdn.jsdelivr.net/gh/kelvin-wong/boxing-timer@master/public/media/bell.mp3',
+            rooster: 'https://cdn.jsdelivr.net/gh/Mombali-S/Alarm-Clock@master/sounds/rooster.mp3',
+            scifi: 'https://cdn.jsdelivr.net/gh/b-mc2/react-timer@master/public/alarm.mp3'
         };
 
         // --- VARIABLES ---
@@ -430,8 +430,8 @@
         let isInputMode = false;
         let wakeLock = null;
         let alarmInterval = null;
-        let masterVolume = 0.5;
-        let currentAudio = null; // Store audio object
+        let masterVolume = 1.0; // Default Full Volume
+        let currentAudio = null;
 
         // Circular Progress Setup
         const radius = progressRing.r.baseVal.value;
@@ -441,7 +441,6 @@
 
         // --- AUDIO ENGINE ---
         function playSelectedSound() {
-            // Stop existing sound if playing
             if (currentAudio) {
                 currentAudio.pause();
                 currentAudio.currentTime = 0;
@@ -452,12 +451,20 @@
             
             currentAudio = new Audio(url);
             currentAudio.volume = masterVolume;
-            currentAudio.play().catch(e => console.log('Audio error:', e));
+            currentAudio.play().catch(e => {
+                console.error('Audio play failed:', e);
+                // Fallback beep if network fails
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                osc.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.2);
+            });
         }
 
         function startAlarmLoop() {
             playSelectedSound();
-            // Loop every 3 seconds (3000ms)
+            // Loop every 3 seconds
             alarmInterval = setInterval(() => {
                 playSelectedSound();
             }, 3000);
@@ -484,8 +491,6 @@
         }
 
         function setProgress(percent) {
-            // Clockwise Logic with scaleY(-1):
-            // 0% = Full (offset 0), 100% = Empty (offset C)
             const offset = (percent / 100) * circumference;
             progressRing.style.strokeDashoffset = offset;
         }
@@ -529,9 +534,6 @@
                 return;
             }
             
-            // Warm up audio context (simple permission check)
-            // No AudioContext needed for HTML Audio, but good to handle user interaction logic
-            
             isRunning = true;
             worker.postMessage('start');
             requestWakeLock();
@@ -558,7 +560,6 @@
         function resetTimer() {
             stopTimer(true);
             
-            // Kill audio loop
             if (alarmInterval) {
                 clearInterval(alarmInterval);
                 alarmInterval = null;
@@ -577,7 +578,6 @@
 
         // --- CUSTOM INPUT LOGIC ---
         function toggleInputMode() {
-            // Lock: Do not open if running or ringing
             if (isRunning || alarmInterval) return;
 
             isInputMode = !isInputMode;
@@ -626,21 +626,17 @@
         startBtn.onclick = startTimer;
         resetBtn.onclick = resetTimer;
         
-        // Volume
         volumeSlider.addEventListener('input', (e) => {
             masterVolume = parseFloat(e.target.value);
             if (currentAudio) currentAudio.volume = masterVolume;
         });
 
-        // Click Display to Edit
         display.addEventListener('click', toggleInputMode);
 
-        // Sound Preview
         previewBtn.addEventListener('click', () => {
             playSelectedSound();
         });
 
-        // Presets
         document.querySelectorAll('.preset-btn').forEach(btn => {
             btn.onclick = () => {
                 if (isInputMode) toggleInputMode(); 
@@ -653,14 +649,12 @@
             };
         });
 
-        // Input Keys
         [inH, inM, inS].forEach(inp => {
             inp.addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') { confirmCustomTime(); startTimer(); }
             });
         });
 
-        // Wake Lock Persistence
         document.addEventListener('visibilitychange', async () => {
             if (wakeLock !== null && document.visibilityState === 'visible') {
                 requestWakeLock();
