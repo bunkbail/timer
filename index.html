@@ -6,16 +6,16 @@
     <title>Focus Timer</title>
     <style>
         :root {
-            --bg-color: #0b1019; /* Deep dark blue */
-            --card-bg: #111827; /* Slightly lighter dark blue */
-            --primary-blue: #3b82f6; /* Bright modern blue */
-            --primary-hover: #2563eb;
+            --bg-color: #0b1019;
+            --card-bg: #111827;
+            --primary-blue: #3b82f6;
+            --primary-glow: rgba(59, 130, 246, 0.5);
+            --track-color: #1f2937;
             --text-main: #e2e8f0;
-            --text-muted: #94a3b8;
-            --danger: #ef4444;
+            --text-muted: #64748b;
         }
 
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
         
         body {
             background-color: var(--bg-color);
@@ -24,39 +24,125 @@
             justify-content: center;
             align-items: center;
             min-height: 100vh;
-            transition: background 0.3s ease;
+            overflow: hidden; /* Prevent scrolling on mobile */
         }
 
         .container {
-            text-align: center;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
             width: 100%;
-            max-width: 400px;
+            max-width: 450px;
             padding: 20px;
         }
 
-        /* Timer Display */
-        .timer-display {
-            font-size: 6rem;
-            font-weight: 200;
-            font-variant-numeric: tabular-nums;
-            letter-spacing: -2px;
-            margin: 20px 0;
-            color: var(--primary-blue);
-            text-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+        /* --- CIRCULAR PROGRESS BAR --- */
+        .timer-circle {
+            position: relative;
+            width: 320px;
+            height: 320px;
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
 
-        /* Controls */
+        svg {
+            transform: rotate(-90deg);
+            width: 100%;
+            height: 100%;
+        }
+
+        circle {
+            fill: transparent;
+            stroke-width: 8;
+            stroke-linecap: round;
+        }
+
+        .circle-bg {
+            stroke: var(--track-color);
+        }
+
+        .circle-progress {
+            stroke: var(--primary-blue);
+            stroke-dasharray: 942; /* 2 * PI * r (approx 150 radius) */
+            stroke-dashoffset: 0;
+            transition: stroke-dashoffset 1s linear, stroke 0.3s;
+            filter: drop-shadow(0 0 8px var(--primary-glow));
+        }
+
+        /* --- TIMER DISPLAY & INPUTS --- */
+        .time-wrapper {
+            position: absolute;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+
+        .timer-display {
+            font-size: 4rem;
+            font-weight: 300;
+            font-variant-numeric: tabular-nums;
+            color: var(--text-main);
+            user-select: none;
+            cursor: default;
+        }
+
+        /* Input Mode Styles */
+        .input-group {
+            display: none; /* Hidden by default */
+            gap: 5px;
+            align-items: center;
+        }
+        
+        .input-group.active {
+            display: flex;
+        }
+
+        .time-input {
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid var(--track-color);
+            color: var(--primary-blue);
+            font-size: 3rem;
+            width: 70px;
+            text-align: center;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .time-input:focus { border-bottom-color: var(--primary-blue); }
+        .time-input::placeholder { color: var(--text-muted); opacity: 0.3; }
+
+        /* Remove spinner arrows from inputs */
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+        .input-labels {
+            display: flex;
+            gap: 50px;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: -10px;
+            margin-bottom: 20px;
+            opacity: 0; /* Hidden unless in edit mode */
+        }
+        .input-labels.active { opacity: 1; }
+
+        /* --- CONTROLS --- */
         .controls {
             display: flex;
             gap: 15px;
-            justify-content: center;
-            margin-bottom: 40px;
+            margin-bottom: 25px;
+            z-index: 10;
         }
 
         button {
             border: none;
-            padding: 12px 24px;
-            border-radius: 8px;
+            padding: 12px 28px;
+            border-radius: 50px; /* Fully rounded buttons */
             font-size: 1rem;
             font-weight: 600;
             cursor: pointer;
@@ -68,44 +154,56 @@
         .btn-primary {
             background-color: var(--primary-blue);
             color: white;
-            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.4);
         }
-        .btn-primary:hover { background-color: var(--primary-hover); transform: translateY(-1px); }
-        .btn-primary:active { transform: translateY(0); }
+        .btn-primary:hover { background-color: #2563eb; transform: scale(1.05); }
+        .btn-primary:active { transform: scale(0.95); }
 
         .btn-secondary {
             background-color: transparent;
-            border: 1px solid var(--text-muted);
+            border: 1px solid var(--track-color);
             color: var(--text-muted);
         }
         .btn-secondary:hover { border-color: var(--text-main); color: var(--text-main); }
 
-        /* Presets */
+        /* --- PRESETS & EXTRAS --- */
         .presets {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
             gap: 10px;
-            margin-top: 20px;
+            margin-top: 10px;
         }
 
         .preset-btn {
             background-color: var(--card-bg);
             color: var(--text-muted);
-            padding: 15px;
+            padding: 8px 16px;
             border-radius: 8px;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
+            border: 1px solid transparent;
         }
         .preset-btn:hover {
-            background-color: #1f2937;
+            border-color: var(--primary-blue);
             color: var(--primary-blue);
         }
 
-        /* Status Indicator */
+        .custom-toggle {
+            font-size: 0.8rem;
+            color: var(--primary-blue);
+            background: none;
+            margin-top: 15px;
+            text-decoration: underline;
+            cursor: pointer;
+            opacity: 0.7;
+        }
+        .custom-toggle:hover { opacity: 1; }
+
         .status {
-            margin-top: 20px;
+            position: absolute;
+            bottom: 10px;
             font-size: 0.8rem;
             color: var(--text-muted);
-            height: 20px;
         }
 
     </style>
@@ -113,7 +211,30 @@
 <body>
 
     <div class="container">
-        <div class="timer-display" id="display">00:00</div>
+        <!-- Circular Progress -->
+        <div class="timer-circle">
+            <svg>
+                <circle class="circle-bg" cx="50%" cy="50%" r="150"></circle>
+                <circle class="circle-progress" id="progressRing" cx="50%" cy="50%" r="150"></circle>
+            </svg>
+            
+            <div class="time-wrapper">
+                <!-- Standard Display -->
+                <div class="timer-display" id="display">00:00:00</div>
+                
+                <!-- Custom Input Fields -->
+                <div class="input-group" id="inputGroup">
+                    <input type="number" class="time-input" id="inH" placeholder="00" max="99">
+                    <span style="font-size:2rem; color:var(--text-muted)">:</span>
+                    <input type="number" class="time-input" id="inM" placeholder="00" max="59">
+                    <span style="font-size:2rem; color:var(--text-muted)">:</span>
+                    <input type="number" class="time-input" id="inS" placeholder="00" max="59">
+                </div>
+                <div class="input-labels" id="inputLabels">
+                    <span>HR</span><span>MIN</span><span>SEC</span>
+                </div>
+            </div>
+        </div>
         
         <div class="controls">
             <button id="startBtn" class="btn-primary">Start</button>
@@ -121,27 +242,26 @@
         </div>
 
         <div class="presets">
-            <button class="preset-btn" data-time="15">15 Minutes</button>
-            <button class="preset-btn" data-time="24">24 Minutes</button>
-            <button class="preset-btn" data-time="30">30 Minutes</button>
-            <button class="preset-btn" data-time="60">1 Hour</button>
+            <button class="preset-btn" data-m="15">15 Min</button>
+            <button class="preset-btn" data-m="24">24 Min</button>
+            <button class="preset-btn" data-m="30">30 Min</button>
+            <button class="preset-btn" data-m="60">1 Hour</button>
         </div>
+
+        <button id="customToggle" class="custom-toggle">Set Custom Time</button>
         
-        <div class="status" id="statusText">Select a time to begin</div>
+        <div class="status" id="statusText">Ready to focus</div>
     </div>
 
     <script>
-        // --- LOGIC: Web Worker for Background Accuracy ---
-        // We create the worker dynamically so you don't need a separate file.
+        // --- WORKER (Background Thread) ---
         const workerCode = `
-            let timerInterval;
+            let interval;
             self.onmessage = function(e) {
                 if (e.data === 'start') {
-                    timerInterval = setInterval(() => {
-                        self.postMessage('tick');
-                    }, 1000);
+                    interval = setInterval(() => self.postMessage('tick'), 1000);
                 } else if (e.data === 'stop') {
-                    clearInterval(timerInterval);
+                    clearInterval(interval);
                 }
             };
         `;
@@ -150,60 +270,98 @@
 
         // --- DOM ELEMENTS ---
         const display = document.getElementById('display');
+        const progressRing = document.getElementById('progressRing');
         const startBtn = document.getElementById('startBtn');
         const resetBtn = document.getElementById('resetBtn');
         const statusText = document.getElementById('statusText');
-        const presetBtns = document.querySelectorAll('.preset-btn');
+        const customToggle = document.getElementById('customToggle');
+        
+        // Input Elements
+        const inputGroup = document.getElementById('inputGroup');
+        const inputLabels = document.getElementById('inputLabels');
+        const inH = document.getElementById('inH');
+        const inM = document.getElementById('inM');
+        const inS = document.getElementById('inS');
 
         // --- VARIABLES ---
-        let totalSeconds = 15 * 60; // Default 15 mins
+        let totalSeconds = 15 * 60; 
         let remainingSeconds = totalSeconds;
         let isRunning = false;
+        let wakeLock = null;
         let audioContext = null;
+        let isInputMode = false;
 
-        // --- AUDIO SYSTEM (Web Audio API) ---
-        // This creates a beep sound manually. It is much more reliable than <audio> tags.
-        function playAlarm() {
-            if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            
-            const oscillator = audioContext.createOscillator();
-            const gainNode = audioContext.createGain();
-            
-            oscillator.type = 'sine';
-            oscillator.frequency.setValueAtTime(880, audioContext.currentTime); // High pitch beep
-            oscillator.frequency.exponentialRampToValueAtTime(440, audioContext.currentTime + 0.5);
-            
-            gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+        // Calculate Circle Circumference for Progress Bar
+        const radius = progressRing.r.baseVal.value;
+        const circumference = radius * 2 * Math.PI;
+        progressRing.style.strokeDasharray = `${circumference} ${circumference}`;
+        progressRing.style.strokeDashoffset = 0;
 
-            oscillator.connect(gainNode);
-            gainNode.connect(audioContext.destination);
-
-            oscillator.start();
-            oscillator.stop(audioContext.currentTime + 0.5);
-        }
-
-        // Initialize Audio Context on first user interaction (Required by browsers)
-        function initAudio() {
-            if (!audioContext) {
-                audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                // Play a silent sound to "warm up" the audio engine
-                const buffer = audioContext.createBuffer(1, 1, 22050); 
-                const source = audioContext.createBufferSource();
-                source.buffer = buffer;
-                source.connect(audioContext.destination);
-                source.start(0);
-            } else if (audioContext.state === 'suspended') {
-                audioContext.resume();
+        // --- WAKE LOCK (Keeps Laptop Awake) ---
+        async function requestWakeLock() {
+            try {
+                if ('wakeLock' in navigator) {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                    console.log('Wake Lock is active');
+                }
+            } catch (err) {
+                console.error(`${err.name}, ${err.message}`);
+                // Only shows if there's a specific error, harmless otherwise
             }
         }
 
-        // --- TIMER FUNCTIONS ---
+        function releaseWakeLock() {
+            if (wakeLock !== null) {
+                wakeLock.release().then(() => wakeLock = null);
+                console.log('Wake Lock released');
+            }
+        }
+
+        // --- AUDIO ---
+        function playAlarm() {
+            if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            
+            const osc = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+            
+            osc.type = 'sine';
+            // Beep pattern: High Low High
+            osc.frequency.setValueAtTime(880, audioContext.currentTime);
+            osc.frequency.setValueAtTime(440, audioContext.currentTime + 0.2);
+            osc.frequency.setValueAtTime(880, audioContext.currentTime + 0.4);
+
+            gain.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gain.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.6);
+
+            osc.connect(gain);
+            gain.connect(audioContext.destination);
+            osc.start();
+            osc.stop(audioContext.currentTime + 0.6);
+        }
+
+        // --- LOGIC ---
+        function formatTime(totalSecs) {
+            const h = Math.floor(totalSecs / 3600);
+            const m = Math.floor((totalSecs % 3600) / 60);
+            const s = totalSecs % 60;
+            // Only show hours if > 0, otherwise MM:SS
+            if (h > 0) {
+                return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+            }
+            return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        }
+
+        function setProgress(percent) {
+            const offset = circumference - (percent / 100) * circumference;
+            progressRing.style.strokeDashoffset = offset;
+        }
+
         function updateDisplay() {
-            const m = Math.floor(remainingSeconds / 60);
-            const s = remainingSeconds % 60;
-            display.textContent = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-            document.title = isRunning ? `(${display.textContent}) Timer` : 'Focus Timer';
+            display.textContent = formatTime(remainingSeconds);
+            // Calculate percentage
+            const percent = totalSeconds === 0 ? 0 : (remainingSeconds / totalSeconds) * 100;
+            setProgress(percent);
+            document.title = isRunning ? `(${formatTime(remainingSeconds)}) Timer` : 'Focus';
         }
 
         function finishTimer() {
@@ -211,31 +369,46 @@
             remainingSeconds = 0;
             updateDisplay();
             playAlarm();
-            // Pulse the alarm 3 times
-            setTimeout(playAlarm, 1000);
-            setTimeout(playAlarm, 2000);
+            let count = 0;
+            const alarmInterval = setInterval(() => {
+                count++;
+                playAlarm();
+                if (count >= 5) clearInterval(alarmInterval); // Beep 5 times
+            }, 1000);
             statusText.textContent = "Time's up!";
-            alert("Time is up!"); // Fallback if audio fails
+            alert("Timer Complete!");
         }
 
         function startTimer() {
+            if (isInputMode) confirmCustomTime(); // If in edit mode, save time first
+
             if (isRunning) {
-                // If running, treat button as Pause
+                // Pause
                 stopTimer();
                 return;
             }
             
-            initAudio(); // Ensure audio is ready
+            // Audio Context needs user gesture init
+            if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioContext.state === 'suspended') audioContext.resume();
+
             isRunning = true;
-            worker.postMessage('start'); // Tell worker to start ticking
+            worker.postMessage('start');
+            requestWakeLock(); // Enable Wake Lock
+            
             startBtn.textContent = 'Pause';
-            startBtn.style.backgroundColor = 'var(--text-muted)'; // Dim color for pause state
+            startBtn.style.backgroundColor = 'var(--text-muted)';
             statusText.textContent = 'Focusing...';
+            
+            // Visual tweak
+            progressRing.style.stroke = 'var(--primary-blue)';
         }
 
         function stopTimer() {
             isRunning = false;
-            worker.postMessage('stop'); // Tell worker to stop
+            worker.postMessage('stop');
+            releaseWakeLock(); // Release Wake Lock
+            
             startBtn.textContent = 'Start';
             startBtn.style.backgroundColor = 'var(--primary-blue)';
             statusText.textContent = 'Paused';
@@ -248,16 +421,53 @@
             statusText.textContent = 'Ready';
         }
 
-        function setTime(minutes) {
-            stopTimer();
-            totalSeconds = minutes * 60;
-            remainingSeconds = totalSeconds;
-            updateDisplay();
-            statusText.textContent = `Set for ${minutes} minutes`;
+        // --- CUSTOM INPUT LOGIC ---
+        function toggleInputMode() {
+            if (isRunning) stopTimer();
+            
+            isInputMode = !isInputMode;
+            
+            if (isInputMode) {
+                // Show Inputs, Hide Display
+                display.style.display = 'none';
+                inputGroup.classList.add('active');
+                inputLabels.classList.add('active');
+                customToggle.textContent = 'Cancel Edit';
+                statusText.textContent = 'Enter time';
+                
+                // Pre-fill inputs with 0
+                inH.value = ''; inM.value = ''; inS.value = '';
+                inM.focus();
+            } else {
+                // Hide Inputs, Show Display
+                display.style.display = 'block';
+                inputGroup.classList.remove('active');
+                inputLabels.classList.remove('active');
+                customToggle.textContent = 'Set Custom Time';
+                updateDisplay();
+            }
         }
 
-        // --- WORKER LISTENER ---
-        // This receives the 'tick' from the background thread
+        function confirmCustomTime() {
+            // Calculate seconds from inputs
+            const h = parseInt(inH.value) || 0;
+            const m = parseInt(inM.value) || 0;
+            const s = parseInt(inS.value) || 0;
+            
+            const newTotal = (h * 3600) + (m * 60) + s;
+            
+            if (newTotal > 0) {
+                totalSeconds = newTotal;
+                remainingSeconds = totalSeconds;
+                // Exit input mode
+                toggleInputMode(); 
+                statusText.textContent = 'Custom time set';
+            } else {
+                // If 0, just exit without saving (or set to default)
+                toggleInputMode();
+            }
+        }
+
         worker.onmessage = function(e) {
             if (e.data === 'tick') {
                 if (remainingSeconds > 0) {
@@ -272,18 +482,40 @@
         // --- EVENT LISTENERS ---
         startBtn.addEventListener('click', startTimer);
         resetBtn.addEventListener('click', resetTimer);
+        customToggle.addEventListener('click', toggleInputMode);
 
-        presetBtns.forEach(btn => {
+        // Presets
+        document.querySelectorAll('.preset-btn').forEach(btn => {
             btn.addEventListener('click', () => {
-                const min = parseInt(btn.getAttribute('data-time'));
-                setTime(min);
-                startTimer(); // Auto-start on preset click
+                if (isInputMode) toggleInputMode(); // Close input if open
+                stopTimer();
+                const m = parseInt(btn.getAttribute('data-m'));
+                totalSeconds = m * 60;
+                remainingSeconds = totalSeconds;
+                updateDisplay();
+                startTimer();
             });
         });
 
-        // Initial setup
-        updateDisplay();
+        // Handle Enter key in inputs
+        [inH, inM, inS].forEach(input => {
+            input.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    confirmCustomTime();
+                    startTimer();
+                }
+            });
+        });
 
+        // Re-request wake lock if tab visibility changes (browser sometimes drops it)
+        document.addEventListener('visibilitychange', async () => {
+            if (wakeLock !== null && document.visibilityState === 'visible') {
+                requestWakeLock();
+            }
+        });
+
+        // Init
+        updateDisplay();
     </script>
 </body>
 </html>
