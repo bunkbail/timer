@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Focus Timer</title>
-    <!-- Stylish Blue Clock Favicon -->
+    <title>Focus Timer & Alarm</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%233b82f6'%3E%3Cpath d='M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z'/%3E%3C/svg%3E">
     <style>
         :root {
@@ -36,9 +35,47 @@
             flex-direction: column;
             align-items: center;
             width: 100%;
-            max-width: 480px;
+            max-width: 550px;
             padding: 20px;
         }
+
+        /* --- TABS --- */
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 25px;
+            background: var(--card-bg);
+            padding: 5px;
+            border-radius: 12px;
+            border: 1px solid var(--track-color);
+        }
+
+        .tab-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            padding: 8px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.95rem;
+            transition: all 0.2s;
+        }
+
+        .tab-btn.active {
+            background: var(--primary-blue);
+            color: white;
+            box-shadow: 0 0 10px var(--primary-glow);
+        }
+
+        .view-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+        }
+
+        .hidden { display: none !important; }
 
         /* --- SETTINGS BAR --- */
         .settings-bar {
@@ -125,12 +162,41 @@
         }
         input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
 
+        /* --- TIMER LAYOUT (+/- BUTTONS) --- */
+        .timer-layout {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .adjust-btn {
+            background: var(--card-bg);
+            border: 1px solid var(--track-color);
+            color: var(--text-muted);
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .adjust-btn:hover {
+            border-color: var(--primary-blue);
+            color: var(--primary-blue);
+            transform: scale(1.1);
+        }
+        .adjust-btn:active { transform: scale(0.95); }
+
         /* --- CIRCULAR PROGRESS BAR --- */
         .timer-circle {
             position: relative;
             width: 360px;
             height: 360px;
-            margin-bottom: 30px;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -149,10 +215,7 @@
             stroke-linecap: round;
         }
 
-        .circle-bg {
-            stroke: var(--track-color);
-        }
-
+        .circle-bg { stroke: var(--track-color); }
         .circle-progress {
             stroke: var(--primary-blue);
             transition: stroke-dashoffset 1s linear; 
@@ -214,6 +277,22 @@
         }
         .time-input:focus { border-bottom-color: var(--primary-blue); }
         .time-input::placeholder { color: var(--text-muted); opacity: 0.2; }
+        
+/* General form inputs */
+input[type="time"] {
+    background: var(--card-bg);
+    border: 1px solid var(--track-color);
+    color: var(--text-main);
+    padding: 10px;
+    border-radius: 8px;
+    font-size: 2rem;
+    outline: none;
+    color-scheme: dark; /* This forces the native dropdown into dark mode */
+}
+input[type="time"]::-webkit-calendar-picker-indicator { 
+    filter: invert(1); 
+    cursor: pointer; 
+}
 
         .input-label {
             font-size: 0.7rem;
@@ -304,10 +383,13 @@
 <body>
 
     <div class="container">
+
+        <div class="tabs">
+            <button class="tab-btn active" id="tabTimer">Timer</button>
+            <button class="tab-btn" id="tabAlarm">Alarm Clock</button>
+        </div>
         
-        <!-- Settings Bar -->
         <div class="settings-bar">
-            <!-- Sound Selector -->
             <div class="sound-row">
                 <select id="soundSelect">
                     <option value="alert_alarm">Alert Alarm</option>
@@ -321,63 +403,92 @@
                 <button class="preview-btn" id="previewBtn" title="Preview Sound">▶</button>
             </div>
 
-            <!-- Volume Control -->
             <div class="volume-control" title="Volume">
                 <svg class="volume-icon" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
                 <input type="range" id="volumeSlider" min="0" max="1" step="0.1" value="1.0">
             </div>
         </div>
 
-        <!-- Circular Progress -->
-        <div class="timer-circle">
-            <svg viewBox="0 0 360 360">
-                <circle class="circle-bg" cx="180" cy="180" r="150"></circle>
-                <circle class="circle-progress" id="progressRing" cx="180" cy="180" r="150"></circle>
-            </svg>
-            
-            <div class="time-wrapper">
-                <!-- Standard Display -->
-                <div class="timer-display editable" id="display" title="Click to edit time">00:00:00</div>
+        <div id="timerView" class="view-section">
+            <div class="timer-layout">
+                <button class="adjust-btn" id="sub5Btn" title="Subtract 5 Seconds">-5s</button>
                 
-                <!-- Custom Input Fields -->
-                <div class="input-group" id="inputGroup">
-                    <div class="input-unit">
-                        <input type="number" class="time-input" id="inH" placeholder="00" max="99">
-                        <span class="input-label">HR</span>
-                    </div>
-                    <span class="colon">:</span>
-                    <div class="input-unit">
-                        <input type="number" class="time-input" id="inM" placeholder="00" max="59">
-                        <span class="input-label">MIN</span>
-                    </div>
-                    <span class="colon">:</span>
-                    <div class="input-unit">
-                        <input type="number" class="time-input" id="inS" placeholder="00" max="59">
-                        <span class="input-label">SEC</span>
+                <div class="timer-circle">
+                    <svg viewBox="0 0 360 360">
+                        <circle class="circle-bg" cx="180" cy="180" r="150"></circle>
+                        <circle class="circle-progress" id="progressRing" cx="180" cy="180" r="150"></circle>
+                    </svg>
+                    
+                    <div class="time-wrapper">
+                        <div class="timer-display editable" id="display" title="Click to edit time">00:00:00</div>
+                        
+                        <div class="input-group" id="inputGroup">
+                            <div class="input-unit">
+                                <input type="number" class="time-input" id="inH" placeholder="00" max="99">
+                                <span class="input-label">HR</span>
+                            </div>
+                            <span class="colon">:</span>
+                            <div class="input-unit">
+                                <input type="number" class="time-input" id="inM" placeholder="00" max="59">
+                                <span class="input-label">MIN</span>
+                            </div>
+                            <span class="colon">:</span>
+                            <div class="input-unit">
+                                <input type="number" class="time-input" id="inS" placeholder="00" max="59">
+                                <span class="input-label">SEC</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
+
+                <button class="adjust-btn" id="add5Btn" title="Add 5 Seconds">+5s</button>
+            </div>
+            
+            <div class="controls">
+                <button id="startBtn" class="btn-primary">
+                    <svg class="icon" id="playIcon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                    <span id="btnText">Start</span>
+                </button>
+                <button id="resetBtn" class="btn-secondary">Reset</button>
+            </div>
+
+            <div class="presets">
+                <button class="preset-btn" data-m="15">15 Min</button>
+                <button class="preset-btn" data-m="24">24 Min</button>
+                <button class="preset-btn" data-m="30">30 Min</button>
+                <button class="preset-btn" data-m="60">1 Hour</button>
             </div>
         </div>
-        
-        <div class="controls">
-            <button id="startBtn" class="btn-primary">
-                <svg class="icon" id="playIcon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-                <span id="btnText">Start</span>
-            </button>
-            <button id="resetBtn" class="btn-secondary">Reset</button>
-        </div>
 
-        <div class="presets">
-            <button class="preset-btn" data-m="15">15 Min</button>
-            <button class="preset-btn" data-m="24">24 Min</button>
-            <button class="preset-btn" data-m="30">30 Min</button>
-            <button class="preset-btn" data-m="60">1 Hour</button>
+        <div id="alarmView" class="view-section hidden">
+            <div class="timer-circle" style="margin-bottom: 20px;">
+                <svg viewBox="0 0 360 360">
+                    <circle class="circle-bg" cx="180" cy="180" r="150"></circle>
+                    <circle stroke="var(--primary-blue)" cx="180" cy="180" r="150" style="filter: drop-shadow(0 0 12px var(--primary-glow));"></circle>
+                </svg>
+                <div class="time-wrapper">
+                    <div class="timer-display" id="clockDisplay">00:00:00</div>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 15px; align-items: center; margin-bottom: 20px;">
+                <input type="time" id="alarmTimeInput">
+            </div>
+
+            <div class="controls">
+                <button id="setAlarmBtn" class="btn-primary">Set Alarm</button>
+                <button id="clearAlarmBtn" class="btn-secondary">Clear</button>
+            </div>
+
+            <div id="alarmStatus" style="color: var(--text-muted); font-size: 0.95rem; font-weight: 500;">
+                Alarm not set
+            </div>
         </div>
         
     </div>
 
     <script>
-        // --- WORKER ---
+        // --- WORKER (Timer Background execution) ---
         const workerCode = `
             let interval;
             self.onmessage = function(e) {
@@ -398,13 +509,31 @@
         const resetBtn = document.getElementById('resetBtn');
         const btnText = document.getElementById('btnText');
         const playIcon = document.getElementById('playIcon');
+        
         const soundSelect = document.getElementById('soundSelect');
         const previewBtn = document.getElementById('previewBtn');
         const volumeSlider = document.getElementById('volumeSlider');
+        
         const inputGroup = document.getElementById('inputGroup');
         const inH = document.getElementById('inH');
         const inM = document.getElementById('inM');
         const inS = document.getElementById('inS');
+
+        const add5Btn = document.getElementById('add5Btn');
+        const sub5Btn = document.getElementById('sub5Btn');
+
+        // Tab Elements
+        const tabTimer = document.getElementById('tabTimer');
+        const tabAlarm = document.getElementById('tabAlarm');
+        const timerView = document.getElementById('timerView');
+        const alarmView = document.getElementById('alarmView');
+
+        // Alarm Clock Elements
+        const clockDisplay = document.getElementById('clockDisplay');
+        const alarmTimeInput = document.getElementById('alarmTimeInput');
+        const setAlarmBtn = document.getElementById('setAlarmBtn');
+        const clearAlarmBtn = document.getElementById('clearAlarmBtn');
+        const alarmStatus = document.getElementById('alarmStatus');
 
         // --- ICONS ---
         const ICON_PLAY = '<path d="M8 5v14l11-7z"/>';
@@ -428,31 +557,33 @@
         let isRunning = false;
         let isInputMode = false;
         let wakeLock = null;
-        let alarmInterval = null;
+        let activeAlarmLoop = null; // Renamed to avoid confusion with clock alarm
         let masterVolume = 1.0; 
         
-        // SINGLE PERSISTENT AUDIO PLAYER
+        let isPreviewing = false;
         const audioPlayer = new Audio();
         audioPlayer.preload = "auto";
-        let isPreviewing = false;
 
-        // Circular Progress
+        // Alarm Clock Variables
+        let scheduledAlarmTime = null; // stored as "HH:MM"
+        let isAlarmClockRinging = false;
+
+        // Circular Progress Init
         const radius = progressRing.r.baseVal.value;
         const circumference = radius * 2 * Math.PI;
         progressRing.style.strokeDasharray = `${circumference} ${circumference}`;
         progressRing.style.strokeDashoffset = 0;
 
         // --- AUDIO ENGINE ---
-
-        // Initialize Audio
         function initAudio() {
+            // Read from DOM explicitly to fix browser cache bug on refresh
+            masterVolume = parseFloat(volumeSlider.value);
             if (audioPlayer.src !== SOUNDS[soundSelect.value]) {
                 audioPlayer.src = SOUNDS[soundSelect.value];
             }
             audioPlayer.volume = masterVolume;
         }
 
-        // Switch Sound
         function switchSound() {
             const wasPlaying = isPreviewing;
             if (wasPlaying) stopAudio();
@@ -506,12 +637,23 @@
             }
         }
 
-        function startAlarmLoop() {
+        function startAlarmLoop(buttonEl, resetCallback) {
             playSound();
-            alarmInterval = setInterval(() => {
+            activeAlarmLoop = setInterval(() => {
                 playSound();
             }, 3000);
-            document.title = "Time's Up!";
+            
+            buttonEl.innerHTML = `<rect x="6" y="6" width="12" height="12"/> Stop`;
+            buttonEl.classList.add('alarm-ringing');
+            buttonEl.onclick = resetCallback; 
+        }
+
+        function stopAlarmLoop() {
+            if (activeAlarmLoop) {
+                clearInterval(activeAlarmLoop);
+                activeAlarmLoop = null;
+            }
+            stopAudio();
         }
 
         // --- WAKE LOCK ---
@@ -521,6 +663,95 @@
         function releaseWakeLock() {
             if (wakeLock) { wakeLock.release(); wakeLock = null; }
         }
+
+        // --- TAB LOGIC ---
+        function switchTab(tab) {
+            if (tab === 'timer') {
+                tabTimer.classList.add('active');
+                tabAlarm.classList.remove('active');
+                timerView.classList.remove('hidden');
+                alarmView.classList.add('hidden');
+            } else {
+                tabAlarm.classList.add('active');
+                tabTimer.classList.remove('active');
+                alarmView.classList.remove('hidden');
+                timerView.classList.add('hidden');
+            }
+        }
+
+        tabTimer.onclick = () => switchTab('timer');
+        tabAlarm.onclick = () => switchTab('alarm');
+
+        // --- ALARM CLOCK LOGIC ---
+        function updateRealTimeClock() {
+            const now = new Date();
+            const h = String(now.getHours()).padStart(2, '0');
+            const m = String(now.getMinutes()).padStart(2, '0');
+            const s = String(now.getSeconds()).padStart(2, '0');
+            
+            clockDisplay.textContent = `${h}:${m}:${s}`;
+            const currentTimeStr = `${h}:${m}`;
+
+            // Check if Alarm should trigger
+            if (scheduledAlarmTime === currentTimeStr && s === '00' && !isAlarmClockRinging) {
+                triggerAlarmClock();
+            }
+        }
+
+        function triggerAlarmClock() {
+            isAlarmClockRinging = true;
+            scheduledAlarmTime = null; // Consume the alarm
+            alarmStatus.textContent = "ALARM RINGING!";
+            alarmStatus.style.color = "#ef4444";
+            startAlarmLoop(setAlarmBtn, resetAlarmClock);
+            document.title = "⏰ Alarm Ringing!";
+        }
+
+        function setAlarmClock() {
+            if (isAlarmClockRinging) {
+                resetAlarmClock();
+                return;
+            }
+            
+            if (!alarmTimeInput.value) return;
+            scheduledAlarmTime = alarmTimeInput.value;
+            
+            // Format for display (12hr format optionally, sticking to 24h for simplicity based on input)
+            alarmStatus.textContent = `Alarm set for ${scheduledAlarmTime}`;
+            alarmStatus.style.color = "var(--primary-blue)";
+            
+            // Re-bind button back to set logic incase it was altered
+            setAlarmBtn.classList.remove('alarm-ringing');
+            setAlarmBtn.textContent = 'Set Alarm';
+        }
+
+        function resetAlarmClock() {
+            stopAlarmLoop();
+            isAlarmClockRinging = false;
+            setAlarmBtn.classList.remove('alarm-ringing');
+            setAlarmBtn.textContent = 'Set Alarm';
+            setAlarmBtn.onclick = setAlarmClock;
+            document.title = 'Focus Timer & Alarm';
+            
+            if (scheduledAlarmTime) {
+                alarmStatus.textContent = `Alarm set for ${scheduledAlarmTime}`;
+                alarmStatus.style.color = "var(--primary-blue)";
+            } else {
+                alarmStatus.textContent = "Alarm not set";
+                alarmStatus.style.color = "var(--text-muted)";
+            }
+        }
+
+        function clearAlarmClock() {
+            scheduledAlarmTime = null;
+            resetAlarmClock();
+            alarmTimeInput.value = '';
+        }
+
+        setAlarmBtn.onclick = setAlarmClock;
+        clearAlarmBtn.onclick = clearAlarmClock;
+        setInterval(updateRealTimeClock, 1000);
+        updateRealTimeClock();
 
         // --- TIMER LOGIC ---
         function formatTime(totalSecs) {
@@ -542,9 +773,9 @@
             setProgress(percent);
             
             if (isRunning) document.title = `(${formatTime(remainingSeconds)}) Focus`;
-            else document.title = 'Focus Timer';
+            else if (!isAlarmClockRinging) document.title = 'Focus Timer & Alarm';
 
-            if (isRunning || alarmInterval) {
+            if (isRunning || activeAlarmLoop) {
                 display.classList.remove('editable');
                 display.classList.add('locked');
             } else {
@@ -553,22 +784,37 @@
             }
         }
 
+function adjustTime(seconds) {
+            // Check if the timer hasn't started yet (or is at 0)
+            const hasNotStarted = (totalSeconds === remainingSeconds);
+
+            remainingSeconds += seconds;
+            if (remainingSeconds < 0) remainingSeconds = 0;
+
+            if (hasNotStarted) {
+                // If it hasn't started, keep total time in sync so the ring stays full
+                totalSeconds = remainingSeconds;
+            } else {
+                // If it is running/paused, only expand total if we add time past the original start
+                if (remainingSeconds > totalSeconds) {
+                    totalSeconds = remainingSeconds;
+                }
+            }
+            
+            updateDisplay();
+        }
+
         function finishTimer() {
             stopTimer(false); 
             remainingSeconds = 0;
             updateDisplay();
-            startAlarmLoop();
-            
-            playIcon.innerHTML = ICON_STOP;
-            btnText.textContent = 'Stop';
-            startBtn.classList.add('alarm-ringing');
-            startBtn.onclick = resetTimer; 
+            startAlarmLoop(startBtn, resetTimer);
+            document.title = "Time's Up!";
         }
 
         function startTimer() {
             if (isInputMode) confirmCustomTime();
 
-            // Smart Start: If time is 00:00, open input menu
             if (remainingSeconds === 0 && totalSeconds === 0) {
                 toggleInputMode();
                 return;
@@ -606,13 +852,11 @@
 
         function resetTimer() {
             stopTimer(true);
-            if (alarmInterval) { clearInterval(alarmInterval); alarmInterval = null; }
-            stopAudio();
+            stopAlarmLoop();
 
             startBtn.classList.remove('alarm-ringing');
             startBtn.onclick = startTimer;
             
-            // KEY UPDATE: Reset everything to 0
             totalSeconds = 0;
             remainingSeconds = 0;
             updateDisplay();
@@ -620,7 +864,7 @@
 
         // --- INPUT LOGIC ---
         function toggleInputMode() {
-            if (isRunning || alarmInterval) return;
+            if (isRunning || activeAlarmLoop) return;
             isInputMode = !isInputMode;
             if (isInputMode) {
                 display.style.display = 'none';
@@ -657,6 +901,9 @@
         startBtn.onclick = startTimer;
         resetBtn.onclick = resetTimer;
         
+        add5Btn.onclick = () => adjustTime(5);
+        sub5Btn.onclick = () => adjustTime(-5);
+
         volumeSlider.addEventListener('input', (e) => {
             masterVolume = parseFloat(e.target.value);
             audioPlayer.volume = masterVolume;
@@ -669,12 +916,11 @@
         document.querySelectorAll('.preset-btn').forEach(btn => {
             btn.onclick = () => {
                 if (isInputMode) toggleInputMode(); 
-                if (alarmInterval) resetTimer();
-                stopTimer(); // Ensure stopped
+                if (activeAlarmLoop) resetTimer();
+                stopTimer();
                 totalSeconds = parseInt(btn.getAttribute('data-m')) * 60;
                 remainingSeconds = totalSeconds;
                 updateDisplay();
-                // Removed startTimer() to pause on preset
             };
         });
 
@@ -688,7 +934,7 @@
             if (wakeLock !== null && document.visibilityState === 'visible') requestWakeLock();
         });
 
-        // Init
+        // Initialize App State
         initAudio();
         updateDisplay();
     </script>
