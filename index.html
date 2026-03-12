@@ -309,7 +309,7 @@
             outline: none;
             color-scheme: dark; /* Dark mode fix applied here */
         }
-        input[type="time"]::-webkit-calendar-picker-indicator { cursor: pointer; }
+        input[type="time"]::-webkit-calendar-picker-indicator { cursor: pointer; } /* Removed filter: invert(1) so it shows properly in dark mode */
 
         .input-label {
             font-size: 0.7rem;
@@ -664,7 +664,6 @@
         function startAlarmLoop(buttonEl, resetCallback) {
             playSound();
             activeAlarmLoop = setInterval(() => { playSound(); }, 3000);
-            buttonEl.innerHTML = `<rect x="6" y="6" width="12" height="12"/> Stop`;
             buttonEl.classList.add('alarm-ringing');
             buttonEl.onclick = resetCallback; 
         }
@@ -724,6 +723,8 @@
             alarmStatus.textContent = "ALARM RINGING!";
             alarmStatus.style.color = "#ef4444";
             startAlarmLoop(setAlarmBtn, resetAlarmClock);
+            // Uses the same structure so the icon isn't lost for the alarm button
+            setAlarmBtn.innerHTML = `<svg class="btn-icon" viewBox="0 0 24 24">${ICON_STOP}</svg> Stop`;
             document.title = "⏰ Alarm Ringing!";
         }
 
@@ -815,6 +816,11 @@
             remainingSeconds = 0;
             updateDisplay();
             startAlarmLoop(startBtn, resetTimer);
+            
+            // Replaces the inner content of the icon and text individually so the button doesn't break
+            playIcon.innerHTML = ICON_STOP;
+            btnText.textContent = 'Stop';
+            
             document.title = "Time's Up!";
         }
 
