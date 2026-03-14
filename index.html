@@ -361,8 +361,8 @@
         .btn-primary:hover { background-color: #2563eb; transform: scale(1.05); }
         .btn-primary:active { transform: scale(0.95); }
         .btn-primary.alarm-ringing {
-            background-color: #ef4444; 
-            box-shadow: 0 0 20px rgba(239, 68, 68, 0.5);
+            background-color: #ef4444 !important; 
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.5) !important;
             animation: pulse 1s infinite;
         }
 
@@ -420,13 +420,13 @@
             <div class="settings-bar">
                 <div class="sound-row">
                     <select id="soundSelect">
+                        <option value="flute">Flute</option>
                         <option value="alert_alarm">Alert Alarm</option>
                         <option value="loud_alarm">Loud Alarm</option>
                         <option value="fire_alarm">Fire Alarm</option>
                         <option value="church_bell">Church Bell</option>
                         <option value="emergency_alarm">Emergency</option>
                         <option value="rooster">Rooster</option>
-                        <option value="flute">Flute</option>
                     </select>
                     <button class="preview-btn" id="previewBtn" title="Preview Sound">▶</button>
                 </div>
@@ -494,7 +494,7 @@
                 <div class="timer-circle" style="margin-bottom: 20px;">
                     <svg viewBox="0 0 360 360">
                         <circle class="circle-bg" cx="180" cy="180" r="150"></circle>
-                        <circle stroke="var(--primary-blue)" cx="180" cy="180" r="150" style="filter: drop-shadow(0 0 12px var(--primary-glow));"></circle>
+                        <circle class="circle-progress" id="alarmProgressRing" cx="180" cy="180" r="150"></circle>
                     </svg>
                     <div class="time-wrapper">
                         <div class="timer-display" id="clockDisplay">00:00:00</div>
@@ -565,6 +565,7 @@
         const setAlarmBtn = document.getElementById('setAlarmBtn');
         const clearAlarmBtn = document.getElementById('clearAlarmBtn');
         const alarmStatus = document.getElementById('alarmStatus');
+        const alarmProgressRing = document.getElementById('alarmProgressRing');
 
         // --- ICONS ---
         const ICON_PLAY = '<path d="M8 5v14l11-7z"/>';
@@ -573,13 +574,13 @@
 
         // --- AUDIO SOURCES ---
         const SOUNDS = {
+            flute: "https://assets.mixkit.co/active_storage/sfx/2317/2317.wav",
             loud_alarm: "https://assets.mixkit.co/active_storage/sfx/2869/2869.wav",
             fire_alarm: "https://assets.mixkit.co/active_storage/sfx/995/995.wav",
             church_bell: "https://assets.mixkit.co/active_storage/sfx/603/603.wav",
             alert_alarm: "https://assets.mixkit.co/active_storage/sfx/1005/1005.wav",
             emergency_alarm: "https://assets.mixkit.co/active_storage/sfx/1000/1000.wav",
-            rooster: "https://assets.mixkit.co/active_storage/sfx/2462/2462.wav",
-            flute: "https://assets.mixkit.co/active_storage/sfx/2317/2317.wav"
+            rooster: "https://assets.mixkit.co/active_storage/sfx/2462/2462.wav"
         };
 
         // --- VARIABLES ---
@@ -597,11 +598,17 @@
 
         let scheduledAlarmTime = null; 
         let isAlarmClockRinging = false;
+        let alarmTargetTimestamp = null;
+        let alarmTotalSeconds = 0;
 
         const radius = progressRing.r.baseVal.value;
         const circumference = radius * 2 * Math.PI;
+        
         progressRing.style.strokeDasharray = `${circumference} ${circumference}`;
         progressRing.style.strokeDashoffset = 0;
+        
+        alarmProgressRing.style.strokeDasharray = `${circumference} ${circumference}`;
+        alarmProgressRing.style.strokeDashoffset = 0;
 
         // --- AUDIO ENGINE ---
         function initAudio() {
@@ -702,24 +709,47 @@
         tabTimer.onclick = () => switchTab('timer');
         tabAlarm.onclick = () => switchTab('alarm');
 
+        // --- FORMAT TIME (Used for both countdowns) ---
+        function formatTime(totalSecs) {
+            const h = Math.floor(totalSecs / 3600);
+            const m = Math.floor((totalSecs % 3600) / 60);
+            const s = totalSecs % 60;
+            if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+            return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        }
+
         // --- ALARM CLOCK LOGIC ---
         function updateRealTimeClock() {
             const now = new Date();
             const h = String(now.getHours()).padStart(2, '0');
             const m = String(now.getMinutes()).padStart(2, '0');
             const s = String(now.getSeconds()).padStart(2, '0');
-            
-            clockDisplay.textContent = `${h}:${m}:${s}`;
-            const currentTimeStr = `${h}:${m}`;
 
-            if (scheduledAlarmTime === currentTimeStr && s === '00' && !isAlarmClockRinging) {
-                triggerAlarmClock();
+            // If an alarm is ticking down...
+            if (scheduledAlarmTime && !isAlarmClockRinging && alarmTargetTimestamp) {
+                const nowTime = now.getTime();
+                let remainingSecs = (alarmTargetTimestamp - nowTime) / 1000;
+                
+                if (remainingSecs <= 0) {
+                    clockDisplay.textContent = "00:00";
+                    triggerAlarmClock();
+                } else {
+                    clockDisplay.textContent = formatTime(Math.ceil(remainingSecs));
+                    const percent = (remainingSecs / alarmTotalSeconds) * 100;
+                    const offset = ((100 - percent) / 100) * circumference;
+                    alarmProgressRing.style.strokeDashoffset = offset;
+                }
+            } else {
+                // Default real time clock
+                clockDisplay.textContent = `${h}:${m}:${s}`;
             }
         }
 
         function triggerAlarmClock() {
             isAlarmClockRinging = true;
             scheduledAlarmTime = null; 
+            alarmTargetTimestamp = null;
+            alarmProgressRing.style.strokeDashoffset = circumference; // Empty out when ringing
             alarmStatus.textContent = "ALARM RINGING!";
             alarmStatus.style.color = "#ef4444";
             startAlarmLoop(setAlarmBtn, resetAlarmClock);
@@ -730,12 +760,43 @@
 
         function setAlarmClock() {
             if (isAlarmClockRinging) { resetAlarmClock(); return; }
+            
+            // Toggle Logic: Cancel alarm if already set, BUT KEEP the input text.
+            if (scheduledAlarmTime) {
+                scheduledAlarmTime = null;
+                alarmTargetTimestamp = null;
+                resetAlarmClock(); 
+                updateRealTimeClock(); 
+                return;
+            }
+
             if (!alarmTimeInput.value) return;
+            
             scheduledAlarmTime = alarmTimeInput.value;
+            const [targetH, targetM] = scheduledAlarmTime.split(':').map(Number);
+            
+            let now = new Date();
+            let targetDate = new Date();
+            targetDate.setHours(targetH, targetM, 0, 0);
+            
+            // If the target time is earlier than right now, it means it's set for tomorrow
+            if (targetDate <= now) {
+                targetDate.setDate(targetDate.getDate() + 1);
+            }
+            
+            alarmTargetTimestamp = targetDate.getTime();
+            alarmTotalSeconds = (alarmTargetTimestamp - now.getTime()) / 1000;
+            alarmProgressRing.style.strokeDashoffset = 0; // Starts fully filled
+            
             alarmStatus.textContent = `Alarm set for ${scheduledAlarmTime}`;
             alarmStatus.style.color = "var(--primary-blue)";
+            
+            // Transform button to Cancel state
             setAlarmBtn.classList.remove('alarm-ringing');
-            setAlarmBtn.textContent = 'Set Alarm';
+            setAlarmBtn.textContent = 'Cancel Alarm';
+            setAlarmBtn.style.backgroundColor = 'var(--text-muted)';
+            
+            updateRealTimeClock(); // Force instant visual update
         }
 
         function resetAlarmClock() {
@@ -743,21 +804,27 @@
             isAlarmClockRinging = false;
             setAlarmBtn.classList.remove('alarm-ringing');
             setAlarmBtn.textContent = 'Set Alarm';
+            setAlarmBtn.style.backgroundColor = ''; // Reverts to blue CSS class
             setAlarmBtn.onclick = setAlarmClock;
             document.title = 'Focus Timer & Alarm';
+            
             if (scheduledAlarmTime) {
                 alarmStatus.textContent = `Alarm set for ${scheduledAlarmTime}`;
                 alarmStatus.style.color = "var(--primary-blue)";
             } else {
                 alarmStatus.textContent = "Alarm not set";
                 alarmStatus.style.color = "var(--text-muted)";
+                alarmProgressRing.style.strokeDashoffset = 0; // Reset visual
             }
         }
 
         function clearAlarmClock() {
             scheduledAlarmTime = null;
-            resetAlarmClock();
-            alarmTimeInput.value = '';
+            alarmTargetTimestamp = null;
+            resetAlarmClock(); // Resets the button UI
+            alarmTimeInput.value = ''; // Actually clears the input box
+            alarmProgressRing.style.strokeDashoffset = 0;
+            updateRealTimeClock(); // Forces the display back to real-time instantly
         }
 
         setAlarmBtn.onclick = setAlarmClock;
@@ -766,14 +833,6 @@
         updateRealTimeClock();
 
         // --- TIMER LOGIC ---
-        function formatTime(totalSecs) {
-            const h = Math.floor(totalSecs / 3600);
-            const m = Math.floor((totalSecs % 3600) / 60);
-            const s = totalSecs % 60;
-            if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-            return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-        }
-
         function setProgress(percent) {
             const offset = (percent / 100) * circumference;
             progressRing.style.strokeDashoffset = offset;
