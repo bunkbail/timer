@@ -6,6 +6,8 @@
     <title>Focus Timer & Alarm</title>
     <!-- Stylish Blue Clock Favicon -->
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%233b82f6'%3E%3Cpath d='M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z'/%3E%3C/svg%3E">
+    <!-- NoSleep.js Fallback -->
+    <script src="https://richtr.github.io/NoSleep.js/dist/NoSleep.min.js"></script>
     <style>
         :root {
             --bg-color: #0b1019;
@@ -29,7 +31,7 @@
             overflow: hidden;
         }
 
-        /* --- NEW APP LAYOUT --- */
+        /* --- APP LAYOUT --- */
         .app-container {
             display: flex;
             width: 100%;
@@ -42,11 +44,11 @@
         /* --- SIDEBAR --- */
         .sidebar {
             width: 110px;
-            background-color: transparent; /* Made perfectly seamless with the dark blue background */
+            background-color: transparent;
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center; /* Centers the items vertically perfectly */
+            justify-content: center;
             padding: 0;
             gap: 15px;
         }
@@ -57,7 +59,7 @@
             color: var(--text-muted);
             width: 80px;
             height: 80px;
-            border-radius: 16px; /* Makes it a nice rounded app-like button */
+            border-radius: 16px;
             cursor: pointer;
             display: flex;
             flex-direction: column;
@@ -71,13 +73,13 @@
 
         .sidebar-btn:hover { 
             color: var(--text-main); 
-            background: rgba(255, 255, 255, 0.05); /* Subtle hover effect */
+            background: rgba(255, 255, 255, 0.05);
         }
         
         .sidebar-btn.active {
             color: white;
-            background: var(--primary-blue); /* Solid blue fill */
-            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4); /* Nice glow */
+            background: var(--primary-blue);
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
         }
 
         .sidebar-icon { width: 26px; height: 26px; fill: currentColor; }
@@ -89,7 +91,6 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            /* Removed overflow-y: auto; to completely prevent scrolling */
         }
 
         .view-section {
@@ -305,11 +306,11 @@
             color: var(--text-main);
             padding: 10px 15px;
             border-radius: 8px;
-            font-size: 1.5rem; /* Reduced from 2rem to look more proportionate */
+            font-size: 1.5rem;
             outline: none;
-            color-scheme: dark; /* Dark mode fix applied here */
+            color-scheme: dark;
         }
-        input[type="time"]::-webkit-calendar-picker-indicator { cursor: pointer; } /* Removed filter: invert(1) so it shows properly in dark mode */
+        input[type="time"]::-webkit-calendar-picker-indicator { cursor: pointer; }
 
         .input-label {
             font-size: 0.7rem;
@@ -394,13 +395,11 @@
             border: 1px solid transparent;
         }
         .preset-btn:hover { border-color: var(--primary-blue); color: var(--primary-blue); }
-
     </style>
 </head>
 <body>
 
     <div class="app-container">
-        
         <!-- Sidebar Navigation -->
         <div class="sidebar">
             <button class="sidebar-btn active" id="tabTimer">
@@ -415,7 +414,6 @@
 
         <!-- Main Content Area -->
         <div class="main-content">
-            
             <!-- Global Settings Bar -->
             <div class="settings-bar">
                 <div class="sound-row">
@@ -514,7 +512,6 @@
                     Alarm not set
                 </div>
             </div>
-            
         </div>
     </div>
 
@@ -588,7 +585,6 @@
         let remainingSeconds = 0;
         let isRunning = false;
         let isInputMode = false;
-        let wakeLock = null;
         let activeAlarmLoop = null; 
         let masterVolume = 1.0; 
         
@@ -600,6 +596,10 @@
         let isAlarmClockRinging = false;
         let alarmTargetTimestamp = null;
         let alarmTotalSeconds = 0;
+
+        // WakeLock & NoSleep holders
+        let sentinel = null;
+        let noSleep = null;
 
         const radius = progressRing.r.baseVal.value;
         const circumference = radius * 2 * Math.PI;
@@ -683,12 +683,64 @@
             stopAudio();
         }
 
-        // --- WAKE LOCK ---
-        async function requestWakeLock() {
-            try { if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); } catch (err) {}
+        // --- WAKE LOCK & NOSLEEP ---
+        async function enableFallback() {
+            try {
+                if (!noSleep) {
+                    if (typeof NoSleep === 'undefined') {
+                        await new Promise((resolve, reject) => {
+                            const s = document.createElement('script');
+                            s.src = 'https://richtr.github.io/NoSleep.js/dist/NoSleep.min.js';
+                            s.onload = resolve;
+                            s.onerror = reject;
+                            document.head.appendChild(s);
+                        });
+                    }
+                    noSleep = new NoSleep();
+                }
+                noSleep.enable();
+                return true;
+            } catch (err) {
+                console.warn('Fallback enable failed:', err);
+                return false;
+            }
         }
+
+        async function requestWakeLock() {
+            try {
+                // 1. Prefer native screen Wake Lock API
+                if ('wakeLock' in navigator) {
+                    try {
+                        sentinel = await navigator.wakeLock.request('screen');
+                        if (sentinel && typeof sentinel.addEventListener === 'function') {
+                            sentinel.addEventListener('release', () => {
+                                sentinel = null;
+                            });
+                        }
+                        return;
+                    } catch (errNative) {
+                        console.warn('Native wakeLock failed, switching to NoSleep fallback:', errNative);
+                        await enableFallback();
+                        return;
+                    }
+                } else {
+                    // 2. Unsupported browser/context -> NoSleep fallback
+                    await enableFallback();
+                    return;
+                }
+            } catch (e) {
+                console.error('requestWakeLock error', e);
+            }
+        }
+
         function releaseWakeLock() {
-            if (wakeLock) { wakeLock.release(); wakeLock = null; }
+            if (sentinel) {
+                sentinel.release().catch(() => {});
+                sentinel = null;
+            }
+            if (noSleep) {
+                noSleep.disable();
+            }
         }
 
         // --- SIDEBAR TAB LOGIC ---
@@ -709,7 +761,7 @@
         tabTimer.onclick = () => switchTab('timer');
         tabAlarm.onclick = () => switchTab('alarm');
 
-        // --- FORMAT TIME (Used for both countdowns) ---
+        // --- FORMAT TIME ---
         function formatTime(totalSecs) {
             const h = Math.floor(totalSecs / 3600);
             const m = Math.floor((totalSecs % 3600) / 60);
@@ -725,7 +777,6 @@
             const m = String(now.getMinutes()).padStart(2, '0');
             const s = String(now.getSeconds()).padStart(2, '0');
 
-            // If an alarm is ticking down...
             if (scheduledAlarmTime && !isAlarmClockRinging && alarmTargetTimestamp) {
                 const nowTime = now.getTime();
                 let remainingSecs = (alarmTargetTimestamp - nowTime) / 1000;
@@ -740,7 +791,6 @@
                     alarmProgressRing.style.strokeDashoffset = offset;
                 }
             } else {
-                // Default real time clock
                 clockDisplay.textContent = `${h}:${m}:${s}`;
             }
         }
@@ -749,11 +799,10 @@
             isAlarmClockRinging = true;
             scheduledAlarmTime = null; 
             alarmTargetTimestamp = null;
-            alarmProgressRing.style.strokeDashoffset = circumference; // Empty out when ringing
+            alarmProgressRing.style.strokeDashoffset = circumference;
             alarmStatus.textContent = "ALARM RINGING!";
             alarmStatus.style.color = "#ef4444";
             startAlarmLoop(setAlarmBtn, resetAlarmClock);
-            // Uses the same structure so the icon isn't lost for the alarm button
             setAlarmBtn.innerHTML = `<svg class="btn-icon" viewBox="0 0 24 24">${ICON_STOP}</svg> Stop`;
             document.title = "⏰ Alarm Ringing!";
         }
@@ -761,7 +810,6 @@
         function setAlarmClock() {
             if (isAlarmClockRinging) { resetAlarmClock(); return; }
             
-            // Toggle Logic: Cancel alarm if already set, BUT KEEP the input text.
             if (scheduledAlarmTime) {
                 scheduledAlarmTime = null;
                 alarmTargetTimestamp = null;
@@ -779,24 +827,22 @@
             let targetDate = new Date();
             targetDate.setHours(targetH, targetM, 0, 0);
             
-            // If the target time is earlier than right now, it means it's set for tomorrow
             if (targetDate <= now) {
                 targetDate.setDate(targetDate.getDate() + 1);
             }
             
             alarmTargetTimestamp = targetDate.getTime();
             alarmTotalSeconds = (alarmTargetTimestamp - now.getTime()) / 1000;
-            alarmProgressRing.style.strokeDashoffset = 0; // Starts fully filled
+            alarmProgressRing.style.strokeDashoffset = 0;
             
             alarmStatus.textContent = `Alarm set for ${scheduledAlarmTime}`;
             alarmStatus.style.color = "var(--primary-blue)";
             
-            // Transform button to Cancel state
             setAlarmBtn.classList.remove('alarm-ringing');
             setAlarmBtn.textContent = 'Cancel Alarm';
             setAlarmBtn.style.backgroundColor = 'var(--text-muted)';
             
-            updateRealTimeClock(); // Force instant visual update
+            updateRealTimeClock();
         }
 
         function resetAlarmClock() {
@@ -804,7 +850,7 @@
             isAlarmClockRinging = false;
             setAlarmBtn.classList.remove('alarm-ringing');
             setAlarmBtn.textContent = 'Set Alarm';
-            setAlarmBtn.style.backgroundColor = ''; // Reverts to blue CSS class
+            setAlarmBtn.style.backgroundColor = '';
             setAlarmBtn.onclick = setAlarmClock;
             document.title = 'Focus Timer & Alarm';
             
@@ -814,17 +860,17 @@
             } else {
                 alarmStatus.textContent = "Alarm not set";
                 alarmStatus.style.color = "var(--text-muted)";
-                alarmProgressRing.style.strokeDashoffset = 0; // Reset visual
+                alarmProgressRing.style.strokeDashoffset = 0;
             }
         }
 
         function clearAlarmClock() {
             scheduledAlarmTime = null;
             alarmTargetTimestamp = null;
-            resetAlarmClock(); // Resets the button UI
-            alarmTimeInput.value = ''; // Actually clears the input box
+            resetAlarmClock();
+            alarmTimeInput.value = '';
             alarmProgressRing.style.strokeDashoffset = 0;
-            updateRealTimeClock(); // Forces the display back to real-time instantly
+            updateRealTimeClock();
         }
 
         setAlarmBtn.onclick = setAlarmClock;
@@ -876,7 +922,6 @@
             updateDisplay();
             startAlarmLoop(startBtn, resetTimer);
             
-            // Replaces the inner content of the icon and text individually so the button doesn't break
             playIcon.innerHTML = ICON_STOP;
             btnText.textContent = 'Stop';
             
@@ -989,8 +1034,17 @@
             });
         });
 
-        document.addEventListener('visibilitychange', async () => {
-            if (wakeLock !== null && document.visibilityState === 'visible') requestWakeLock();
+        // Re-acquire lock when coming back to the tab if timer is running
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden && isRunning) {
+                const nativePossible = ('wakeLock' in navigator);
+                const sentinelReleased = sentinel && ('released' in sentinel) ? !!sentinel.released : false;
+                if (nativePossible) {
+                    if (!sentinel || sentinelReleased) requestWakeLock();
+                } else {
+                    if (!noSleep) requestWakeLock();
+                }
+            }
         });
 
         initAudio();
