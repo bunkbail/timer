@@ -600,6 +600,7 @@
         // WakeLock & NoSleep holders
         let sentinel = null;
         let noSleep = null;
+        let wakeLockWanted = false;   // intent: timer/alarm wants the screen awake
 
         const radius = progressRing.r.baseVal.value;
         const circumference = radius * 2 * Math.PI;
@@ -670,6 +671,7 @@
 
         function startAlarmLoop(buttonEl, resetCallback) {
             playSound();
+            acquireWakeLock(); // Keep the screen on while the alarm is ringing
             activeAlarmLoop = setInterval(() => { playSound(); }, 3000);
             buttonEl.classList.add('alarm-ringing');
             buttonEl.onclick = resetCallback; 
@@ -681,9 +683,11 @@
                 activeAlarmLoop = null;
             }
             stopAudio();
+            // Release the wake lock only if nothing else still needs it
+            if (!isRunning && !scheduledAlarmTime) releaseWakeLock();
         }
 
-        // --- WAKE LOCK & NOSLEEP ---
+        // --- WAKE LOCK & NOSLEEP (native Screen Wake Lock API + NoSleep.js fallback) ---
         async function enableFallback() {
             try {
                 if (!noSleep) {
@@ -699,6 +703,7 @@
                     noSleep = new NoSleep();
                 }
                 noSleep.enable();
+                console.info('Wake Lock active (NoSleep fallback)');
                 return true;
             } catch (err) {
                 console.warn('Fallback enable failed:', err);
@@ -707,14 +712,23 @@
         }
 
         async function requestWakeLock() {
+            if (!wakeLockWanted) return;
             try {
                 // 1. Prefer native screen Wake Lock API
                 if ('wakeLock' in navigator) {
+                    if (sentinel && sentinel.released !== true) return; // already held
                     try {
                         sentinel = await navigator.wakeLock.request('screen');
+                        if (!wakeLockWanted) { // timer/alarm stopped while request was in flight
+                            sentinel.release().catch(() => {});
+                            sentinel = null;
+                            return;
+                        }
+                        console.info('Wake Lock active (native)');
+                        // OS/browser can drop the lock on its own -> re-acquire while wanted
                         if (sentinel && typeof sentinel.addEventListener === 'function') {
                             sentinel.addEventListener('release', () => {
-                                sentinel = null;
+                                if (wakeLockWanted && document.visibilityState === 'visible') requestWakeLock();
                             });
                         }
                         return;
@@ -733,14 +747,19 @@
             }
         }
 
+        function acquireWakeLock() {
+            wakeLockWanted = true;
+            requestWakeLock();
+        }
+
         function releaseWakeLock() {
+            wakeLockWanted = false;
             if (sentinel) {
-                sentinel.release().catch(() => {});
+                const s = sentinel;
                 sentinel = null;
+                s.release().catch(() => {});
             }
-            if (noSleep) {
-                noSleep.disable();
-            }
+            if (noSleep) { try { noSleep.disable(); } catch (err) {} }
         }
 
         // --- SIDEBAR TAB LOGIC ---
@@ -834,6 +853,7 @@
             alarmTargetTimestamp = targetDate.getTime();
             alarmTotalSeconds = (alarmTargetTimestamp - now.getTime()) / 1000;
             alarmProgressRing.style.strokeDashoffset = 0;
+            acquireWakeLock(); // Keep the screen awake so the alarm can actually fire
             
             alarmStatus.textContent = `Alarm set for ${scheduledAlarmTime}`;
             alarmStatus.style.color = "var(--primary-blue)";
@@ -936,7 +956,7 @@
             unlockAudio();
             isRunning = true;
             worker.postMessage('start');
-            requestWakeLock();
+            acquireWakeLock();
             
             playIcon.innerHTML = ICON_PAUSE;
             btnText.textContent = 'Pause';
@@ -947,7 +967,8 @@
         function stopTimer(manual = true) {
             isRunning = false;
             worker.postMessage('stop');
-            releaseWakeLock();
+            // Keep the lock if an alarm loop or a scheduled alarm still needs it
+            if (!activeAlarmLoop && !scheduledAlarmTime) releaseWakeLock();
             
             if (manual) {
                 playIcon.innerHTML = ICON_PLAY;
@@ -1034,18 +1055,24 @@
             });
         });
 
-        // Re-acquire lock when coming back to the tab if timer is running
+        // Re-acquire the wake lock when returning to the tab (browsers drop it when hidden)
         document.addEventListener('visibilitychange', () => {
-            if (!document.hidden && isRunning) {
-                const nativePossible = ('wakeLock' in navigator);
-                const sentinelReleased = sentinel && ('released' in sentinel) ? !!sentinel.released : false;
-                if (nativePossible) {
-                    if (!sentinel || sentinelReleased) requestWakeLock();
+            if (!document.hidden && wakeLockWanted) {
+                if ('wakeLock' in navigator) {
+                    if (!sentinel || sentinel.released) requestWakeLock();
+                } else if (noSleep) {
+                    try { noSleep.enable(); } catch (err) {} // re-assert fallback
                 } else {
-                    if (!noSleep) requestWakeLock();
+                    requestWakeLock();
                 }
             }
         });
+
+        // If activation was ever blocked, the next click anywhere acts as the gesture
+        document.addEventListener('click', () => {
+            const nativeHeld = sentinel && sentinel.released !== true;
+            if (wakeLockWanted && !nativeHeld && !noSleep) requestWakeLock();
+        }, { passive: true });
 
         initAudio();
         updateDisplay();
